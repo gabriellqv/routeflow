@@ -68,6 +68,9 @@ jobs:
       - name: Compilar API
         run: npm run build --workspace @routeflow/api
 
+      - name: Aplicar migrations
+        run: npm run migration:run --workspace @routeflow/api
+
       - name: Testes unitários
         run: npm run test --workspace @routeflow/api
 
