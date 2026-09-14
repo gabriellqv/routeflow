@@ -1,4 +1,4 @@
-import { RequestMethod, type INestApplication } from '@nestjs/common';
+import { RequestMethod, ValidationPipe, type INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 /**
@@ -13,6 +13,15 @@ export function setupApplication(app: INestApplication): void {
   app.setGlobalPrefix('api', {
     exclude: [{ path: 'health', method: RequestMethod.GET }],
   });
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('RouteFlow API')
