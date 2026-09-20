@@ -1,6 +1,6 @@
 // Package mover implementa o motor de movimento dos veículos: uma goroutine
 // por veículo avança ao longo da rota, gerencia o estado (máquina de estados)
-// e publica posições e eventos.
+// e publica posições e eventos, incluindo os eventos estocásticos.
 package mover
 
 import (
@@ -12,6 +12,7 @@ import (
 	"routeflow/simulator/internal/geometry"
 	"routeflow/simulator/internal/model"
 	"routeflow/simulator/internal/state"
+	"routeflow/simulator/internal/stochastic"
 )
 
 // Publisher publica posições e eventos de veículo no barramento (Redis).
@@ -20,20 +21,31 @@ type Publisher interface {
 	PublishEvent(ctx context.Context, event state.Event) error
 }
 
+// Options reúne os parâmetros de execução do motor.
+type Options struct {
+	SpeedKmh     float64
+	TickInterval time.Duration
+	Stochastic   *stochastic.Generator
+}
+
 // Mover coordena a execução dos veículos simulados.
 type Mover struct {
-	publisher    Publisher
-	speedKmh     float64
-	tickInterval time.Duration
+	publisher Publisher
+	options   Options
 }
 
 // New cria um Mover com a velocidade padrão e o intervalo de tick fornecidos.
 func New(publisher Publisher, speedKmh float64, tickInterval time.Duration) *Mover {
-	return &Mover{
-		publisher:    publisher,
-		speedKmh:     speedKmh,
-		tickInterval: tickInterval,
-	}
+	return NewWithOptions(publisher, Options{
+		SpeedKmh:     speedKmh,
+		TickInterval: tickInterval,
+		Stochastic:   stochastic.New(stochastic.DefaultConfig()),
+	})
+}
+
+// NewWithOptions cria um Mover com opções completas.
+func NewWithOptions(publisher Publisher, options Options) *Mover {
+	return &Mover{publisher: publisher, options: options}
 }
 
 // Run inicia uma goroutine por veículo com rota atribuída e aguarda até que o
@@ -69,7 +81,7 @@ func (m *Mover) runVehicle(ctx context.Context, vehicle model.Vehicle, route mod
 	distance := 0.0
 	machine := state.NewMachine(state.StatusIdle)
 
-	ticker := time.NewTicker(m.tickInterval)
+	ticker := time.NewTicker(m.options.TickInterval)
 	defer ticker.Stop()
 
 	log.Printf("veículo %s (%s) iniciando rota %s (%.0f m)", vehicle.Plate, vehicle.ID, route.Name, total)
@@ -82,13 +94,34 @@ func (m *Mover) runVehicle(ctx context.Context, vehicle model.Vehicle, route mod
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			distance += m.speedKmh * (m.tickInterval.Seconds() / 3600.0) * 1000.0
-
-			completed := distance >= total
 			status := machine.Status()
 			if status == state.StatusIdle {
 				// Rota concluída em tick anterior; nada mais a simular.
 				continue
+			}
+
+			distance += m.options.SpeedKmh * (m.options.TickInterval.Seconds() / 3600.0) * 1000.0
+			completed := distance >= total
+
+			// Eventos estocásticos, avaliados a cada tick por quilômetro
+			// percorrido desde o último tick.
+			km := m.options.SpeedKmh * (m.options.TickInterval.Seconds() / 3600.0)
+
+			if status == state.StatusInRoute && m.options.Stochastic.ShouldFault(km) {
+				m.emitEvent(ctx, vehicle.ID, state.EventVehicleFault, map[string]any{
+					"code":        "SIMULATED_FAULT",
+					"description": "falha simulada",
+				})
+				machine.Transition(state.StatusFault)
+				continue
+			}
+
+			if status == state.StatusInRoute && m.options.Stochastic.ShouldDeviate(km) {
+				point := geometry.Interpolate(route.Geometry.Coordinates, distance)
+				m.emitEvent(ctx, vehicle.ID, state.EventRouteDeviation, map[string]any{
+					"distance_m": 0.0,
+					"point":      []float64{point.Lng, point.Lat},
+				})
 			}
 
 			point := geometry.Interpolate(route.Geometry.Coordinates, distance)
@@ -96,8 +129,8 @@ func (m *Mover) runVehicle(ctx context.Context, vehicle model.Vehicle, route mod
 				VehicleID: vehicle.ID,
 				Lat:       point.Lat,
 				Lng:       point.Lng,
-				SpeedKmh:  m.speedKmh,
-				Status:    string(status),
+				SpeedKmh:  m.options.SpeedKmh,
+				Status:    string(machine.Status()),
 				RouteID:   route.ID,
 				StopIndex: 0,
 				Ts:        time.Now().UTC().Format(time.RFC3339),
@@ -107,7 +140,9 @@ func (m *Mover) runVehicle(ctx context.Context, vehicle model.Vehicle, route mod
 				log.Printf("falha ao publicar posição do veículo %s: %v", vehicle.ID, err)
 			}
 
-			m.emitEvent(ctx, vehicle.ID, state.EventVehicleMoving, map[string]any{"speed_kmh": m.speedKmh})
+			if machine.Status() == state.StatusInRoute {
+				m.emitEvent(ctx, vehicle.ID, state.EventVehicleMoving, map[string]any{"speed_kmh": m.options.SpeedKmh})
+			}
 
 			if completed {
 				m.emitEvent(ctx, vehicle.ID, state.EventRouteCompleted, map[string]any{"route_id": route.ID})

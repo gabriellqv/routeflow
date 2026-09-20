@@ -43,6 +43,7 @@ go run .
     ├── model/         # Tipos de domínio (veículo, rota, posição, estado)
     ├── geometry/      # Haversine, comprimento e interpolação de LineString
     ├── state/         # Status/eventos de veículo e máquina de estados
+    ├── stochastic/    # Eventos aleatórios configuráveis (falha/desvio)
     ├── emitter/       # Publicação no Redis (HASH, GEOADD, PUBLISH, XADD)
     ├── mover/         # Motor: uma goroutine por veículo
     └── server/        # Servidor HTTP de health check
@@ -73,9 +74,9 @@ in_route ──(último stop)──► idle   (rota concluída)
 ```
 
 Nesta etapa, o simulador emite os eventos `route_started`, `vehicle_moving` e
-`route_completed` na stream `vehicles:events` (`XADD`). Os demais eventos
-(`arrived_stop`, `vehicle_fault`, `maintenance_*`, `route_deviation`, etc.)
-dependem da detecção de stops e dos eventos estocásticos, nas próximas etapas.
+`route_completed` na stream `vehicles:events` (`XADD`). Eventos estocásticos de
+`vehicle_fault` e `route_deviation` são gerados por probabilidade configurável
+por quilômetro (`internal/stochastic`).
 
 ## Variáveis de ambiente
 
