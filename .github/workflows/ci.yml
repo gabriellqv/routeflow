@@ -71,8 +71,8 @@ jobs:
       - name: Aplicar migrations
         run: npm run migration:run --workspace @routeflow/api
 
-      - name: Testes unitários
-        run: npm run test --workspace @routeflow/api
+      - name: Testes unitários com cobertura
+        run: npm run test:cov --workspace @routeflow/api
 
       - name: Testes de integração
         run: npm run test:e2e --workspace @routeflow/api
