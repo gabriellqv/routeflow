@@ -43,6 +43,7 @@ src/
 ├── config/     # Configuração tipada e validação das variáveis de ambiente
 ├── database/   # Conexão com PostgreSQL (TypeORM) e migrations
 ├── drivers/    # Entidade, CRUD e serviços de motoristas
+├── routes/     # Entidade, CRUD de rotas com geometria PostGIS
 ├── vehicles/   # Entidade, CRUD e serviços de veículos
 ├── redis/      # Cliente Redis (ioredis) e ciclo de vida
 ├── health/     # Health check (Terminus)
@@ -89,6 +90,23 @@ Todas as rotas exigem autenticação JWT (Bearer).
 O vínculo motorista—veículo é 1—1: informar `driver_id` ao criar/atualizar um
 veículo (ou `vehicle_id` ao criar/atualizar um motorista) realoca o motorista,
 liberando automaticamente qualquer veículo anterior.
+
+## Rotas e entregas
+
+Todas as rotas exigem autenticação JWT (Bearer).
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/routes` | Lista as rotas |
+| GET | `/api/routes/:id` | Retorna uma rota |
+| POST | `/api/routes` | Cria uma rota (GeoJSON LineString) |
+| PATCH | `/api/routes/:id` | Atualiza uma rota |
+| DELETE | `/api/routes/:id` | Remove uma rota |
+
+A `geometry` é um GeoJSON `LineString` (SRID 4326) persistido como
+`geometry(LineString, 4326)` com índice espacial GiST. A atribuição rota—veículo
+é 1—1: cada veículo pode ter no máximo uma rota atribuída (`409` em conflito);
+`PATCH` aceita `assigned_vehicle_id: null` para desatribuir.
 
 ## Variáveis de ambiente
 
