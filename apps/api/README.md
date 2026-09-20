@@ -44,6 +44,7 @@ src/
 ├── database/   # Conexão com PostgreSQL (TypeORM) e migrations
 ├── deliveries/ # Entidade, CRUD e serviços de entregas (paradas)
 ├── drivers/    # Entidade, CRUD e serviços de motoristas
+├── maintenance/ # Entidade, CRUD e serviços de manutenções
 ├── routes/     # Entidade, CRUD de rotas com geometria PostGIS
 ├── vehicles/   # Entidade, CRUD e serviços de veículos
 ├── redis/      # Cliente Redis (ioredis) e ciclo de vida
@@ -124,6 +125,23 @@ Todas as rotas exigem autenticação JWT (Bearer).
 A `geolocation` é um GeoJSON `Point` (SRID 4326) com índice GiST. A ordem da
 entrega é única por rota (`409` em conflito). Ao definir o status como `done`, o
 `delivered_at` é preenchido automaticamente.
+
+## Manutenções
+
+Todas as rotas exigem autenticação JWT (Bearer).
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/maintenance` | Lista as manutenções (filtro opcional `?vehicle_id=`) |
+| GET | `/api/maintenance/:id` | Retorna uma manutenção |
+| POST | `/api/maintenance` | Cria uma manutenção |
+| PATCH | `/api/maintenance/:id` | Atualiza uma manutenção |
+| DELETE | `/api/maintenance/:id` | Remove uma manutenção |
+
+O ciclo de vida é `scheduled` → `in_progress` → `done`. Ao entrar em andamento, o
+`started_at` é preenchido e o veículo vai para `maintenance`; ao concluir, o
+`finished_at` é preenchido e o veículo volta para `idle`. Uma manutenção concluída
+não pode mudar de status (`400`).
 
 ## Variáveis de ambiente
 
