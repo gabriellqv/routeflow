@@ -1,5 +1,6 @@
 // Package mover implementa o motor de movimento dos veículos: uma goroutine
-// por veículo avança ao longo da rota e publica a posição.
+// por veículo avança ao longo da rota, gerencia o estado (máquina de estados)
+// e publica posições e eventos.
 package mover
 
 import (
@@ -10,22 +11,24 @@ import (
 
 	"routeflow/simulator/internal/geometry"
 	"routeflow/simulator/internal/model"
+	"routeflow/simulator/internal/state"
 )
 
-// PositionPublisher publica uma posição de veículo no barramento (Redis).
-type PositionPublisher interface {
+// Publisher publica posições e eventos de veículo no barramento (Redis).
+type Publisher interface {
 	PublishPosition(ctx context.Context, msg model.PositionMessage) error
+	PublishEvent(ctx context.Context, event state.Event) error
 }
 
 // Mover coordena a execução dos veículos simulados.
 type Mover struct {
-	publisher    PositionPublisher
+	publisher    Publisher
 	speedKmh     float64
 	tickInterval time.Duration
 }
 
 // New cria um Mover com a velocidade padrão e o intervalo de tick fornecidos.
-func New(publisher PositionPublisher, speedKmh float64, tickInterval time.Duration) *Mover {
+func New(publisher Publisher, speedKmh float64, tickInterval time.Duration) *Mover {
 	return &Mover{
 		publisher:    publisher,
 		speedKmh:     speedKmh,
@@ -64,10 +67,15 @@ func (m *Mover) Run(ctx context.Context, routes []model.Route, vehicles []model.
 func (m *Mover) runVehicle(ctx context.Context, vehicle model.Vehicle, route model.Route) {
 	total := geometry.Length(route.Geometry.Coordinates)
 	distance := 0.0
+	machine := state.NewMachine(state.StatusIdle)
+
 	ticker := time.NewTicker(m.tickInterval)
 	defer ticker.Stop()
 
 	log.Printf("veículo %s (%s) iniciando rota %s (%.0f m)", vehicle.Plate, vehicle.ID, route.Name, total)
+
+	m.emitEvent(ctx, vehicle.ID, state.EventRouteStarted, map[string]any{"route_id": route.ID})
+	machine.Transition(state.StatusInRoute)
 
 	for {
 		select {
@@ -76,13 +84,20 @@ func (m *Mover) runVehicle(ctx context.Context, vehicle model.Vehicle, route mod
 		case <-ticker.C:
 			distance += m.speedKmh * (m.tickInterval.Seconds() / 3600.0) * 1000.0
 
+			completed := distance >= total
+			status := machine.Status()
+			if status == state.StatusIdle {
+				// Rota concluída em tick anterior; nada mais a simular.
+				continue
+			}
+
 			point := geometry.Interpolate(route.Geometry.Coordinates, distance)
 			msg := model.PositionMessage{
 				VehicleID: vehicle.ID,
 				Lat:       point.Lat,
 				Lng:       point.Lng,
 				SpeedKmh:  m.speedKmh,
-				Status:    "in_route",
+				Status:    string(status),
 				RouteID:   route.ID,
 				StopIndex: 0,
 				Ts:        time.Now().UTC().Format(time.RFC3339),
@@ -91,6 +106,26 @@ func (m *Mover) runVehicle(ctx context.Context, vehicle model.Vehicle, route mod
 			if err := m.publisher.PublishPosition(ctx, msg); err != nil {
 				log.Printf("falha ao publicar posição do veículo %s: %v", vehicle.ID, err)
 			}
+
+			m.emitEvent(ctx, vehicle.ID, state.EventVehicleMoving, map[string]any{"speed_kmh": m.speedKmh})
+
+			if completed {
+				m.emitEvent(ctx, vehicle.ID, state.EventRouteCompleted, map[string]any{"route_id": route.ID})
+				machine.Transition(state.StatusIdle)
+			}
 		}
+	}
+}
+
+// emitEvent publica um evento, registrando o erro sem interromper o loop.
+func (m *Mover) emitEvent(ctx context.Context, vehicleID string, eventType state.EventType, payload map[string]any) {
+	event := state.Event{
+		VehicleID: vehicleID,
+		Type:      eventType,
+		Payload:   payload,
+		Ts:        time.Now().UTC().Format(time.RFC3339),
+	}
+	if err := m.publisher.PublishEvent(ctx, event); err != nil {
+		log.Printf("falha ao publicar evento %s do veículo %s: %v", eventType, vehicleID, err)
 	}
 }
