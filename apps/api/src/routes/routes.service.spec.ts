@@ -14,6 +14,15 @@ describe('RoutesService', () => {
     create: ReturnType<typeof vi.fn>;
     save: ReturnType<typeof vi.fn>;
     remove: ReturnType<typeof vi.fn>;
+    createQueryBuilder: ReturnType<typeof vi.fn>;
+  };
+  let queryBuilder: {
+    select: ReturnType<typeof vi.fn>;
+    addSelect: ReturnType<typeof vi.fn>;
+    where: ReturnType<typeof vi.fn>;
+    orderBy: ReturnType<typeof vi.fn>;
+    getRawMany: ReturnType<typeof vi.fn>;
+    getRawOne: ReturnType<typeof vi.fn>;
   };
   let vehicleRepository: {
     findOne: ReturnType<typeof vi.fn>;
@@ -39,12 +48,21 @@ describe('RoutesService', () => {
   } as Route;
 
   beforeEach(async () => {
+    queryBuilder = {
+      select: vi.fn().mockReturnThis(),
+      addSelect: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      getRawMany: vi.fn(),
+      getRawOne: vi.fn(),
+    };
     repository = {
       find: vi.fn(),
       findOne: vi.fn(),
       create: vi.fn((data: Partial<Route>) => data as Route),
       save: vi.fn((entity: Route) => Promise.resolve(entity)),
       remove: vi.fn(),
+      createQueryBuilder: vi.fn(() => queryBuilder),
     };
     vehicleRepository = { findOne: vi.fn() };
 
@@ -112,6 +130,53 @@ describe('RoutesService', () => {
       const result = await service.update('route-1', { assigned_vehicle_id: null });
 
       expect(result.assigned_vehicle_id).toBeNull();
+    });
+  });
+
+  describe('findNearby', () => {
+    it('deve retornar rotas próximas com a distância convertida em número', async () => {
+      queryBuilder.getRawMany.mockResolvedValue([
+        {
+          id: 'route-1',
+          name: 'Centro — Zona Sul',
+          geometry,
+          waypoints: [],
+          assigned_vehicle_id: null,
+          status: 'created',
+          distance_m: '123.45',
+        },
+      ]);
+
+      const result = await service.findNearby(-46.63, -23.55, 1000);
+
+      expect(result).toEqual([
+        {
+          id: 'route-1',
+          name: 'Centro — Zona Sul',
+          geometry,
+          waypoints: [],
+          assigned_vehicle_id: null,
+          status: 'created',
+          distance_m: 123.45,
+        },
+      ]);
+    });
+  });
+
+  describe('getMetrics', () => {
+    it('deve retornar o comprimento da rota em metros', async () => {
+      repository.findOne.mockResolvedValue(route);
+      queryBuilder.getRawOne.mockResolvedValue({ length_m: '4321.5' });
+
+      const result = await service.getMetrics('route-1');
+
+      expect(result).toEqual({ route_id: 'route-1', length_m: 4321.5 });
+    });
+
+    it('deve lançar NotFoundException quando a rota não existe', async () => {
+      repository.findOne.mockResolvedValue(null);
+
+      await expect(service.getMetrics('inexistente')).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

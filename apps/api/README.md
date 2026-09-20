@@ -64,6 +64,15 @@ automaticamente na inicialização (`migrationsRun`). Para gerar uma nova:
 npm run migration:generate --workspace @routeflow/api -- src/database/migrations/NomeDaMigration
 ```
 
+## Seed
+
+Para popular o banco com veículos, rotas e entregas de demonstração (idempotente
+por placa):
+
+```bash
+npm run seed --workspace @routeflow/api
+```
+
 ## Autenticação
 
 | Método | Rota | Descrição |
@@ -100,6 +109,8 @@ Todas as rotas exigem autenticação JWT (Bearer).
 | Método | Rota | Descrição |
 |---|---|---|
 | GET | `/api/routes` | Lista as rotas |
+| GET | `/api/routes/nearby` | Rotas dentro de um raio (`?lng=&lat=&radius_m=`) |
+| GET | `/api/routes/:id/metrics` | Comprimento da rota em metros |
 | GET | `/api/routes/:id` | Retorna uma rota |
 | POST | `/api/routes` | Cria uma rota (GeoJSON LineString) |
 | PATCH | `/api/routes/:id` | Atualiza uma rota |
@@ -109,6 +120,9 @@ A `geometry` é um GeoJSON `LineString` (SRID 4326) persistido como
 `geometry(LineString, 4326)` com índice espacial GiST. A atribuição rota—veículo
 é 1—1: cada veículo pode ter no máximo uma rota atribuída (`409` em conflito);
 `PATCH` aceita `assigned_vehicle_id: null` para desatribuir.
+
+Consultas geográficas usam PostGIS: `ST_DWithin` (raio em metros sobre geografia)
+para proximidade e `ST_Length` para o comprimento da rota.
 
 ## Entregas
 

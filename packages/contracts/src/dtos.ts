@@ -49,6 +49,15 @@ export interface RouteDto {
   status: RouteStatus;
 }
 
+export interface RouteMetricsDto {
+  route_id: string;
+  length_m: number;
+}
+
+export interface NearbyRouteDto extends RouteDto {
+  distance_m: number;
+}
+
 export interface DeliveryDto {
   id: string;
   route_id: string;
