@@ -42,7 +42,8 @@ go run .
     ├── api/           # Cliente HTTP da API do RouteFlow (health + carregamento)
     ├── model/         # Tipos de domínio (veículo, rota, posição, estado)
     ├── geometry/      # Haversine, comprimento e interpolação de LineString
-    ├── emitter/       # Publicação no Redis (HASH, GEOADD, PUBLISH)
+    ├── state/         # Status/eventos de veículo e máquina de estados
+    ├── emitter/       # Publicação no Redis (HASH, GEOADD, PUBLISH, XADD)
     ├── mover/         # Motor: uma goroutine por veículo
     └── server/        # Servidor HTTP de health check
 ```
@@ -56,6 +57,25 @@ publicando em `vehicles:positions` e gravando o estado (`vehicle:{id}:state`) e
 o índice geo (`vehicles:geo`).
 
 A velocidade padrão é 36 km/h.
+
+## Máquina de estados
+
+O status de cada veículo evolui conforme a máquina de estados:
+
+```
+idle ──(rota atribuída)──► in_route
+in_route ──(chegou no stop)──► stopped
+stopped ──(entrega)──► in_route
+in_route ──(falha)──► fault
+fault ──(manutenção)──► maintenance
+maintenance ──(retornou)──► idle
+in_route ──(último stop)──► idle   (rota concluída)
+```
+
+Nesta etapa, o simulador emite os eventos `route_started`, `vehicle_moving` e
+`route_completed` na stream `vehicles:events` (`XADD`). Os demais eventos
+(`arrived_stop`, `vehicle_fault`, `maintenance_*`, `route_deviation`, etc.)
+dependem da detecção de stops e dos eventos estocásticos, nas próximas etapas.
 
 ## Variáveis de ambiente
 

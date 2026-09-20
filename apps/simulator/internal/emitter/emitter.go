@@ -9,11 +9,13 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"routeflow/simulator/internal/model"
+	"routeflow/simulator/internal/state"
 )
 
 const (
 	vehiclesGeo   = "vehicles:geo"
 	positionsChan = "vehicles:positions"
+	eventsStream  = "vehicles:events"
 )
 
 // Emitter encapsula a escrita no Redis para o hot path do simulador.
@@ -67,6 +69,24 @@ func (e *Emitter) PublishPosition(ctx context.Context, msg model.PositionMessage
 	_, err = pipe.Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("publicar posição: %w", err)
+	}
+
+	return nil
+}
+
+// PublishEvent adiciona um evento à stream `vehicles:events` (XADD).
+func (e *Emitter) PublishEvent(ctx context.Context, event state.Event) error {
+	eventJSON, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("serializar evento: %w", err)
+	}
+
+	_, err = e.client.XAdd(ctx, &redis.XAddArgs{
+		Stream: eventsStream,
+		Values: map[string]any{"data": eventJSON},
+	}).Result()
+	if err != nil {
+		return fmt.Errorf("publicar evento: %w", err)
 	}
 
 	return nil
