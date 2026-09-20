@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
+import type { NearbyRouteDto, RouteMetricsDto } from '@routeflow/contracts';
 import { toRouteResponse } from '../common/mappers.js';
 import { Vehicle } from '../vehicles/vehicle.entity.js';
 import { CreateRouteDto } from './dto/create-route.dto.js';
@@ -101,6 +102,77 @@ export class RoutesService {
   async remove(id: string): Promise<void> {
     const route = await this.getOrFail(id);
     await this.repository.remove(route);
+  }
+
+  /**
+   * Lista rotas cujo traçado passa dentro de um raio de um ponto (PostGIS).
+   *
+   * Usa `ST_DWithin` com geografia (metros) sobre a geometria da rota,
+   * ordenando pelo resultado da distância.
+   *
+   * @param lng Longitude do ponto de referência.
+   * @param lat Latitude do ponto de referência.
+   * @param radiusM Raio de busca em metros.
+   * @returns Rotas dentro do raio, com a distância mínima em metros.
+   */
+  async findNearby(lng: number, lat: number, radiusM: number): Promise<NearbyRouteDto[]> {
+    const rows = await this.repository
+      .createQueryBuilder('route')
+      .select('route.id', 'id')
+      .addSelect('route.name', 'name')
+      .addSelect('ST_AsGeoJSON(route.geometry)::json', 'geometry')
+      .addSelect('route.waypoints', 'waypoints')
+      .addSelect('route.assigned_vehicle_id', 'assigned_vehicle_id')
+      .addSelect('route.status', 'status')
+      .addSelect(
+        `ST_Distance(route.geometry::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography)`,
+        'distance_m',
+      )
+      .where(
+        `ST_DWithin(route.geometry::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radiusM)`,
+        { lng, lat, radiusM },
+      )
+      .orderBy('distance_m', 'ASC')
+      .getRawMany<{
+        id: string;
+        name: string;
+        geometry: NearbyRouteDto['geometry'];
+        waypoints: NearbyRouteDto['waypoints'];
+        assigned_vehicle_id: string | null;
+        status: NearbyRouteDto['status'];
+        distance_m: string;
+      }>();
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      geometry: row.geometry,
+      waypoints: row.waypoints,
+      assigned_vehicle_id: row.assigned_vehicle_id,
+      status: row.status,
+      distance_m: Number(row.distance_m),
+    }));
+  }
+
+  /**
+   * Calcula o comprimento de uma rota em metros (PostGIS).
+   *
+   * Usa `ST_Length` sobre a geografia para obter metros a partir do SRID 4326.
+   *
+   * @param id Identificador da rota.
+   * @returns Métricas da rota (comprimento em metros).
+   * @throws NotFoundException Quando a rota não existe.
+   */
+  async getMetrics(id: string): Promise<RouteMetricsDto> {
+    await this.getOrFail(id);
+
+    const row = await this.repository
+      .createQueryBuilder('route')
+      .select('ST_Length(route.geometry::geography)', 'length_m')
+      .where('route.id = :id', { id })
+      .getRawOne<{ length_m: string }>();
+
+    return { route_id: id, length_m: Number(row?.length_m ?? 0) };
   }
 
   /**

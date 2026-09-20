@@ -126,4 +126,43 @@ describe('Rotas (e2e)', () => {
       .send({ name: '', geometry: { type: 'Point', coordinates: [1, 2] } })
       .expect(400);
   });
+
+  it('deve listar rotas próximas de um ponto (ST_DWithin)', async () => {
+    await request(app.getHttpServer())
+      .post('/api/routes')
+      .set(auth())
+      .send({ name: 'Rota Próxima', geometry })
+      .expect(201);
+
+    const nearby = await request(app.getHttpServer())
+      .get('/api/routes/nearby?lng=-46.6333&lat=-23.5505&radius_m=2000')
+      .set(auth())
+      .expect(200);
+
+    expect(nearby.body).toHaveLength(1);
+    expect(nearby.body[0].name).toBe('Rota Próxima');
+    expect(nearby.body[0].distance_m).toBeGreaterThanOrEqual(0);
+
+    const far = await request(app.getHttpServer())
+      .get('/api/routes/nearby?lng=0&lat=0&radius_m=1000')
+      .set(auth())
+      .expect(200);
+    expect(far.body).toHaveLength(0);
+  });
+
+  it('deve retornar as métricas de comprimento da rota (ST_Length)', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/routes')
+      .set(auth())
+      .send({ name: 'Rota Medida', geometry })
+      .expect(201);
+
+    const metrics = await request(app.getHttpServer())
+      .get(`/api/routes/${created.body.id}/metrics`)
+      .set(auth())
+      .expect(200);
+
+    expect(metrics.body.route_id).toBe(created.body.id);
+    expect(metrics.body.length_m).toBeGreaterThan(0);
+  });
 });
