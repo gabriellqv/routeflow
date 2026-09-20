@@ -5,6 +5,7 @@ import { DatabaseModule } from './database/database.module.js';
 import { DeliveriesModule } from './deliveries/deliveries.module.js';
 import { DriversModule } from './drivers/drivers.module.js';
 import { HealthModule } from './health/health.module.js';
+import { MaintenanceModule } from './maintenance/maintenance.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { RoutesModule } from './routes/routes.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -14,8 +15,7 @@ import { VehiclesModule } from './vehicles/vehicles.module.js';
  * Módulo raiz da API.
  *
  * Compõe os módulos globais de configuração, os módulos de infraestrutura
- * (banco de dados e Redis) e os módulos de domínio. O módulo de manutenção é
- * adicionado na etapa seguinte.
+ * (banco de dados e Redis) e os módulos de domínio.
  */
 @Module({
   imports: [
@@ -29,6 +29,7 @@ import { VehiclesModule } from './vehicles/vehicles.module.js';
     DriversModule,
     RoutesModule,
     DeliveriesModule,
+    MaintenanceModule,
   ],
 })
 export class AppModule {}

@@ -2,6 +2,8 @@ import type { Delivery } from '../deliveries/delivery.entity.js';
 import { DeliveryResponseDto } from '../deliveries/dto/delivery-response.dto.js';
 import type { Driver } from '../drivers/driver.entity.js';
 import { DriverResponseDto } from '../drivers/dto/driver-response.dto.js';
+import type { Maintenance } from '../maintenance/maintenance.entity.js';
+import { MaintenanceResponseDto } from '../maintenance/dto/maintenance-response.dto.js';
 import type { Route } from '../routes/route.entity.js';
 import { RouteResponseDto } from '../routes/dto/route-response.dto.js';
 import type { Vehicle } from '../vehicles/vehicle.entity.js';
@@ -74,5 +76,23 @@ export function toDeliveryResponse(delivery: Delivery): DeliveryResponseDto {
     address: delivery.address,
     status: delivery.status,
     delivered_at: delivery.deliveredAt ? delivery.deliveredAt.toISOString() : null,
+  };
+}
+
+/**
+ * Converte a entidade `Maintenance` para o DTO de resposta (`snake_case`).
+ *
+ * @param maintenance Entidade da manutenção.
+ * @returns DTO de resposta da manutenção.
+ */
+export function toMaintenanceResponse(maintenance: Maintenance): MaintenanceResponseDto {
+  return {
+    id: maintenance.id,
+    vehicle_id: maintenance.vehicleId,
+    type: maintenance.type,
+    description: maintenance.description,
+    started_at: maintenance.startedAt ? maintenance.startedAt.toISOString() : null,
+    finished_at: maintenance.finishedAt ? maintenance.finishedAt.toISOString() : null,
+    status: maintenance.status,
   };
 }
