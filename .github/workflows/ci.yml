@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  qualidade:
+    name: Lint, formatação, build e testes
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: routeflow
+          POSTGRES_PASSWORD: routeflow
+          POSTGRES_DB: routeflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U routeflow -d routeflow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      PORT: 3000
+      DATABASE_URL: postgres://routeflow:routeflow@localhost:5432/routeflow
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: segredo-de-teste-com-no-minimo-16-caracteres
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verificar formatação
+        run: npm run format:check
+
+      - name: Compilar contratos
+        run: npm run build:contracts
+
+      - name: Compilar API
+        run: npm run build --workspace @routeflow/api
+
+      - name: Aplicar migrations
+        run: npm run migration:run --workspace @routeflow/api
+
+      - name: Testes unitários com cobertura
+        run: npm run test:cov --workspace @routeflow/api
+
+      - name: Testes de integração
+        run: npm run test:e2e --workspace @routeflow/api
