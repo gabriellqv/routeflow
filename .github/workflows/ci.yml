@@ -76,3 +76,38 @@ jobs:
 
       - name: Testes de integração
         run: npm run test:e2e --workspace @routeflow/api
+
+  simulator:
+    name: Simulador (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/simulator
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v7
+
+      - name: Configurar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/simulator/go.mod
+          cache-dependency-path: apps/simulator/go.sum
+
+      - name: Verificar formatação
+        run: |
+          files=$(gofmt -l .)
+          if [ -n "$files" ]; then
+            echo "Arquivos fora do padrão gofmt:"
+            echo "$files"
+            exit 1
+          fi
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Testes
+        run: go test ./...
