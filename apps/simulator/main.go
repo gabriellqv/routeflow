@@ -11,9 +11,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"routeflow/simulator/internal/api"
 	"routeflow/simulator/internal/config"
+	"routeflow/simulator/internal/emitter"
+	"routeflow/simulator/internal/mover"
 	"routeflow/simulator/internal/redisx"
 	"routeflow/simulator/internal/server"
 )
@@ -56,6 +59,26 @@ func main() {
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
+	// Carrega veículos e rotas atribuídas da API e inicia o movimento.
+	go func() {
+		vehicles, err := apiClient.LoadVehicles(ctx)
+		if err != nil {
+			log.Printf("falha ao carregar veículos: %v", err)
+			return
+		}
+		routes, err := apiClient.LoadAssignedRoutes(ctx)
+		if err != nil {
+			log.Printf("falha ao carregar rotas: %v", err)
+			return
+		}
+
+		log.Printf("simulando %d veículo(s) em %d rota(s)", len(vehicles), len(routes))
+
+		m := mover.New(emitter.New(redisClient), 36, time.Second)
+		m.Run(ctx, routes, vehicles)
+	}()
+
 	<-stop
 
 	log.Println("encerrando simulador...")
