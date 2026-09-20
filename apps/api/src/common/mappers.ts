@@ -1,5 +1,7 @@
 import type { Driver } from '../drivers/driver.entity.js';
 import { DriverResponseDto } from '../drivers/dto/driver-response.dto.js';
+import type { Route } from '../routes/route.entity.js';
+import { RouteResponseDto } from '../routes/dto/route-response.dto.js';
 import type { Vehicle } from '../vehicles/vehicle.entity.js';
 import { VehicleResponseDto } from '../vehicles/dto/vehicle-response.dto.js';
 
@@ -35,5 +37,22 @@ export function toDriverResponse(driver: Driver, vehicleId: string | null): Driv
     license_number: driver.licenseNumber,
     license_category: driver.licenseCategory,
     vehicle_id: vehicleId,
+  };
+}
+
+/**
+ * Converte a entidade `Route` para o DTO de resposta (`snake_case`).
+ *
+ * @param route Entidade da rota.
+ * @returns DTO de resposta da rota.
+ */
+export function toRouteResponse(route: Route): RouteResponseDto {
+  return {
+    id: route.id,
+    name: route.name,
+    geometry: route.geometry,
+    waypoints: route.waypoints,
+    assigned_vehicle_id: route.assignedVehicleId,
+    status: route.status,
   };
 }
