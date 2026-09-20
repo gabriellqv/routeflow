@@ -8,6 +8,7 @@ import (
 
 	"routeflow/simulator/internal/model"
 	"routeflow/simulator/internal/state"
+	"routeflow/simulator/internal/stochastic"
 )
 
 // fakePublisher registra posições e eventos publicados para inspeção.
@@ -155,5 +156,41 @@ func TestRunSkipsMissingVehicle(t *testing.T) {
 
 	if len(publisher.msgs) != 0 {
 		t.Fatalf("não deveria publicar para veículo inexistente: %d", len(publisher.msgs))
+	}
+}
+
+func TestRunEmitsFaultOnStochasticEvent(t *testing.T) {
+	route := model.Route{
+		ID:                "route-1",
+		Name:              "Teste",
+		AssignedVehicleID: "vehicle-1",
+		Geometry: model.Geometry{
+			Type:        "LineString",
+			Coordinates: [][2]float64{{0, 0}, {0, 0.1}},
+		},
+	}
+	vehicle := model.Vehicle{ID: "vehicle-1", Plate: "ABC1234"}
+
+	publisher := &fakePublisher{}
+	gen := stochastic.NewSeeded(stochastic.Config{FaultPerKm: 1e6, DeviationPerKm: 0}, 1)
+	mover := NewWithOptions(publisher, Options{
+		SpeedKmh:     36,
+		TickInterval: 50 * time.Millisecond,
+		Stochastic:   gen,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		mover.Run(ctx, []model.Route{route}, []model.Vehicle{vehicle})
+		close(done)
+	}()
+
+	time.Sleep(120 * time.Millisecond)
+	cancel()
+	<-done
+
+	if !publisher.hasEvent(state.EventVehicleFault) {
+		t.Fatal("esperava evento vehicle_fault com FaultPerKm = 1")
 	}
 }
