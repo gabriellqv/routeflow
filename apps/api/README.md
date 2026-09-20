@@ -39,9 +39,10 @@ npm run start:dev --workspace @routeflow/api
 ```
 src/
 ├── auth/       # Autenticação (JWT): cadastro, login e guarda de rotas
-├── common/     # Utilitários compartilhados (mappers de entidade -> DTO)
+├── common/     # Utilitários compartilhados (mappers, validadores)
 ├── config/     # Configuração tipada e validação das variáveis de ambiente
 ├── database/   # Conexão com PostgreSQL (TypeORM) e migrations
+├── deliveries/ # Entidade, CRUD e serviços de entregas (paradas)
 ├── drivers/    # Entidade, CRUD e serviços de motoristas
 ├── routes/     # Entidade, CRUD de rotas com geometria PostGIS
 ├── vehicles/   # Entidade, CRUD e serviços de veículos
@@ -107,6 +108,22 @@ A `geometry` é um GeoJSON `LineString` (SRID 4326) persistido como
 `geometry(LineString, 4326)` com índice espacial GiST. A atribuição rota—veículo
 é 1—1: cada veículo pode ter no máximo uma rota atribuída (`409` em conflito);
 `PATCH` aceita `assigned_vehicle_id: null` para desatribuir.
+
+## Entregas
+
+Todas as rotas exigem autenticação JWT (Bearer).
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/deliveries` | Lista as entregas (filtro opcional `?route_id=`) |
+| GET | `/api/deliveries/:id` | Retorna uma entrega |
+| POST | `/api/deliveries` | Cria uma entrega |
+| PATCH | `/api/deliveries/:id` | Atualiza uma entrega |
+| DELETE | `/api/deliveries/:id` | Remove uma entrega |
+
+A `geolocation` é um GeoJSON `Point` (SRID 4326) com índice GiST. A ordem da
+entrega é única por rota (`409` em conflito). Ao definir o status como `done`, o
+`delivered_at` é preenchido automaticamente.
 
 ## Variáveis de ambiente
 

@@ -1,3 +1,5 @@
+import type { Delivery } from '../deliveries/delivery.entity.js';
+import { DeliveryResponseDto } from '../deliveries/dto/delivery-response.dto.js';
 import type { Driver } from '../drivers/driver.entity.js';
 import { DriverResponseDto } from '../drivers/dto/driver-response.dto.js';
 import type { Route } from '../routes/route.entity.js';
@@ -54,5 +56,23 @@ export function toRouteResponse(route: Route): RouteResponseDto {
     waypoints: route.waypoints,
     assigned_vehicle_id: route.assignedVehicleId,
     status: route.status,
+  };
+}
+
+/**
+ * Converte a entidade `Delivery` para o DTO de resposta (`snake_case`).
+ *
+ * @param delivery Entidade da entrega.
+ * @returns DTO de resposta da entrega.
+ */
+export function toDeliveryResponse(delivery: Delivery): DeliveryResponseDto {
+  return {
+    id: delivery.id,
+    route_id: delivery.routeId,
+    order: delivery.order,
+    geolocation: delivery.geolocation,
+    address: delivery.address,
+    status: delivery.status,
+    delivered_at: delivery.deliveredAt ? delivery.deliveredAt.toISOString() : null,
   };
 }
