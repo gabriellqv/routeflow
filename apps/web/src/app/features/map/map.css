@@ -1,0 +1,90 @@
+.map {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  height: 100%;
+}
+
+.map__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.map__title {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #0f172a;
+}
+
+.map__subtitle {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.map__status {
+  font-weight: 600;
+  color: #b91c1c;
+}
+
+.map__status--online {
+  color: #15803d;
+}
+
+.map__canvas {
+  flex: 1;
+  min-height: 420px;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.map__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+  color: #475569;
+}
+
+.map__legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background: #64748b;
+}
+
+.dot--in_route {
+  background: #2563eb;
+}
+
+.dot--stopped {
+  background: #f59e0b;
+}
+
+.dot--fault {
+  background: #dc2626;
+}
+
+.dot--maintenance {
+  background: #7c3aed;
+}
+
+.alert {
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.8125rem;
+}

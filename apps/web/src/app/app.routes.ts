@@ -20,9 +20,7 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'map' },
       {
         path: 'map',
-        loadComponent: () =>
-          import('./features/placeholder/placeholder').then((module) => module.Placeholder),
-        data: { title: 'Mapa em tempo real' },
+        loadComponent: () => import('./features/map/map').then((module) => module.MapView),
       },
       {
         path: 'vehicles',

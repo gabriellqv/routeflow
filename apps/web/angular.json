@@ -25,7 +25,7 @@
                 "input": "public"
               }
             ],
-            "styles": ["src/styles.css"]
+            "styles": ["src/styles.css", "maplibre-gl/dist/maplibre-gl.css"]
           },
           "configurations": {
             "production": {
