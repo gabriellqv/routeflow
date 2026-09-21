@@ -1,0 +1,133 @@
+<section class="crud">
+  <header class="crud__header">
+    <div>
+      <h2 class="crud__title">Rotas</h2>
+      <p class="crud__subtitle">Defina o traçado das rotas e o veículo atribuído.</p>
+    </div>
+    <button type="button" class="btn btn--primary" (click)="openCreate()">Nova rota</button>
+  </header>
+
+  @if (error()) {
+    <p class="alert" role="alert">{{ error() }}</p>
+  }
+
+  @if (formVisible()) {
+    <form class="card form" [formGroup]="form" (ngSubmit)="save()">
+      <h3 class="form__title">{{ editingId() ? 'Editar rota' : 'Nova rota' }}</h3>
+
+      <div class="form__grid">
+        <label class="field">
+          <span class="field__label">Nome</span>
+          <input class="field__input" formControlName="name" placeholder="Centro — Zona Sul" />
+          @if (form.controls.name.touched && form.controls.name.invalid) {
+            <span class="field__error">Informe o nome da rota</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Veículo atribuído</span>
+          <select class="field__input" formControlName="assigned_vehicle_id">
+            <option value="">Sem veículo</option>
+            @for (vehicle of vehicles(); track vehicle.id) {
+              <option [value]="vehicle.id">{{ vehicle.plate }} — {{ vehicle.model }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      <fieldset class="points">
+        <legend class="points__legend">Traçado (LineString)</legend>
+
+        <div class="points__add">
+          <label class="field">
+            <span class="field__label">Longitude</span>
+            <input
+              class="field__input"
+              type="number"
+              step="0.0001"
+              formControlName="waypoint_lng"
+            />
+          </label>
+          <label class="field">
+            <span class="field__label">Latitude</span>
+            <input
+              class="field__input"
+              type="number"
+              step="0.0001"
+              formControlName="waypoint_lat"
+            />
+          </label>
+          <button type="button" class="btn" (click)="addPoint()">Adicionar ponto</button>
+        </div>
+
+        @if (coordinates().length === 0) {
+          <p class="muted">Nenhum ponto adicionado. São necessários ao menos dois.</p>
+        } @else {
+          <ol class="points__list">
+            @for (point of coordinates(); track $index) {
+              <li class="points__item">
+                <span>{{ point.lng }}, {{ point.lat }}</span>
+                <button type="button" class="btn btn--sm btn--danger" (click)="removePoint($index)">
+                  Remover
+                </button>
+              </li>
+            }
+          </ol>
+        }
+      </fieldset>
+
+      @if (formError()) {
+        <p class="alert" role="alert">{{ formError() }}</p>
+      }
+
+      <div class="form__actions">
+        <button type="button" class="btn" (click)="closeForm()">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          {{ saving() ? 'Salvando…' : 'Salvar' }}
+        </button>
+      </div>
+    </form>
+  }
+
+  <div class="card">
+    @if (loading()) {
+      <p class="muted">Carregando…</p>
+    } @else if (items().length === 0) {
+      <p class="muted">Nenhuma rota cadastrada.</p>
+    } @else {
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Pontos</th>
+            <th>Veículo</th>
+            <th>Status</th>
+            <th aria-label="Ações"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (route of items(); track route.id) {
+            <tr>
+              <td>{{ route.name }}</td>
+              <td>{{ route.geometry.coordinates.length }}</td>
+              <td>{{ vehiclePlate(route.assigned_vehicle_id) }}</td>
+              <td>
+                <span class="badge">{{ route.status }}</span>
+              </td>
+              <td class="table__actions">
+                <button type="button" class="btn btn--sm" (click)="openEdit(route)">Editar</button>
+                <button
+                  type="button"
+                  class="btn btn--sm btn--danger"
+                  (click)="confirmRemove(route)"
+                >
+                  Remover
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</section>

@@ -1,0 +1,128 @@
+<section class="crud">
+  <header class="crud__header">
+    <div>
+      <h2 class="crud__title">Entregas</h2>
+      <p class="crud__subtitle">Gerencie as paradas das rotas e seus status.</p>
+    </div>
+    <button type="button" class="btn btn--primary" (click)="openCreate()">Nova entrega</button>
+  </header>
+
+  @if (error()) {
+    <p class="alert" role="alert">{{ error() }}</p>
+  }
+
+  @if (formVisible()) {
+    <form class="card form" [formGroup]="form" (ngSubmit)="save()">
+      <h3 class="form__title">{{ editingId() ? 'Editar entrega' : 'Nova entrega' }}</h3>
+
+      <div class="form__grid">
+        <label class="field">
+          <span class="field__label">Rota</span>
+          <select class="field__input" formControlName="route_id" [disabled]="!!editingId()">
+            <option value="">Selecione uma rota</option>
+            @for (route of routes(); track route.id) {
+              <option [value]="route.id">{{ route.name }}</option>
+            }
+          </select>
+          @if (form.controls.route_id.touched && form.controls.route_id.invalid) {
+            <span class="field__error">Selecione a rota</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Ordem</span>
+          <input class="field__input" type="number" formControlName="order" min="0" />
+          @if (form.controls.order.touched && form.controls.order.invalid) {
+            <span class="field__error">Informe a ordem</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Endereço</span>
+          <input class="field__input" formControlName="address" placeholder="Av. Paulista, 1000" />
+          @if (form.controls.address.touched && form.controls.address.invalid) {
+            <span class="field__error">Informe o endereço</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Longitude</span>
+          <input class="field__input" type="number" step="0.0001" formControlName="lng" />
+        </label>
+
+        <label class="field">
+          <span class="field__label">Latitude</span>
+          <input class="field__input" type="number" step="0.0001" formControlName="lat" />
+        </label>
+
+        <label class="field">
+          <span class="field__label">Status</span>
+          <select class="field__input" formControlName="status">
+            @for (status of statuses; track status) {
+              <option [value]="status">{{ status }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      @if (formError()) {
+        <p class="alert" role="alert">{{ formError() }}</p>
+      }
+
+      <div class="form__actions">
+        <button type="button" class="btn" (click)="closeForm()">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          {{ saving() ? 'Salvando…' : 'Salvar' }}
+        </button>
+      </div>
+    </form>
+  }
+
+  <div class="card">
+    @if (loading()) {
+      <p class="muted">Carregando…</p>
+    } @else if (items().length === 0) {
+      <p class="muted">Nenhuma entrega cadastrada.</p>
+    } @else {
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Rota</th>
+            <th>Ordem</th>
+            <th>Endereço</th>
+            <th>Coordenadas</th>
+            <th>Status</th>
+            <th aria-label="Ações"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (delivery of items(); track delivery.id) {
+            <tr>
+              <td>{{ routeName(delivery.route_id) }}</td>
+              <td>{{ delivery.order }}</td>
+              <td>{{ delivery.address }}</td>
+              <td>
+                {{ delivery.geolocation.coordinates[0] }}, {{ delivery.geolocation.coordinates[1] }}
+              </td>
+              <td>
+                <span class="badge">{{ delivery.status }}</span>
+              </td>
+              <td class="table__actions">
+                <button type="button" class="btn btn--sm" (click)="openEdit(delivery)">
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--sm btn--danger"
+                  (click)="confirmRemove(delivery)"
+                >
+                  Remover
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</section>

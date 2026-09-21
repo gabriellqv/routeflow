@@ -1,10 +1,21 @@
 import 'reflect-metadata';
+import * as bcrypt from 'bcryptjs';
 import { config as loadEnv } from 'dotenv';
 import { DataSource } from 'typeorm';
 import { DeliveryStatus, RouteStatus, VehicleStatus, VehicleType } from '@routeflow/contracts';
 import { envValidationSchema } from '../../config/env.validation.js';
 
 loadEnv({ path: ['../../.env', '.env'], quiet: true });
+
+/** Credenciais do usuário administrador de demonstração. */
+const adminUser = {
+  email: 'admin@routeflow.com',
+  name: 'Administrador',
+  password: 'admin123',
+} as const;
+
+/** Custo do bcrypt, alinhado ao `AuthService`. */
+const BCRYPT_ROUNDS = 12;
 
 /**
  * Resolve a URL do banco a partir das variáveis de ambiente validadas.
@@ -76,7 +87,9 @@ const routes: SeedRoute[] = [
  * Popula o banco com veículos, rotas e entregas de demonstração.
  *
  * É idempotente por placa: veículos com a mesma placa são removidos (com suas
- * rotas/entregas em cascata) e recriados. Ao final, imprime um resumo.
+ * rotas/entregas em cascata) e recriados. Também garante o usuário
+ * administrador de demonstração (`admin@routeflow.com`). Ao final, imprime um
+ * resumo.
  */
 async function seed(): Promise<void> {
   const dataSource = new DataSource({
@@ -90,6 +103,8 @@ async function seed(): Promise<void> {
   await dataSource.initialize();
 
   try {
+    await ensureAdminUser(dataSource);
+
     for (const route of routes) {
       const [existing] = await dataSource.query<{ id: string }[]>(
         'SELECT "id" FROM "vehicles" WHERE "plate" = $1',
@@ -149,6 +164,28 @@ async function seed(): Promise<void> {
   } finally {
     await dataSource.destroy();
   }
+}
+
+/**
+ * Garante o usuário administrador de demonstração.
+ *
+ * Cria o usuário quando não existe; se já existir, apenas atualiza o nome e o
+ * hash da senha, mantendo as credenciais conhecidas.
+ *
+ * @param dataSource Conexão ativa com o banco.
+ */
+async function ensureAdminUser(dataSource: DataSource): Promise<void> {
+  const passwordHash = await bcrypt.hash(adminUser.password, BCRYPT_ROUNDS);
+
+  await dataSource.query(
+    `INSERT INTO "users" ("email", "name", "password_hash")
+     VALUES ($1, $2, $3)
+     ON CONFLICT ("email") DO UPDATE SET "name" = EXCLUDED."name",
+       "password_hash" = EXCLUDED."password_hash"`,
+    [adminUser.email, adminUser.name, passwordHash],
+  );
+
+  console.log(`Seed: usuário administrador "${adminUser.email}" pronto.`);
 }
 
 seed().catch((error) => {

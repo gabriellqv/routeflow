@@ -1,0 +1,106 @@
+<section class="crud">
+  <header class="crud__header">
+    <div>
+      <h2 class="crud__title">Motoristas</h2>
+      <p class="crud__subtitle">Cadastre motoristas e associe veículos.</p>
+    </div>
+    <button type="button" class="btn btn--primary" (click)="openCreate()">Novo motorista</button>
+  </header>
+
+  @if (error()) {
+    <p class="alert" role="alert">{{ error() }}</p>
+  }
+
+  @if (formVisible()) {
+    <form class="card form" [formGroup]="form" (ngSubmit)="save()">
+      <h3 class="form__title">{{ editingId() ? 'Editar motorista' : 'Novo motorista' }}</h3>
+
+      <div class="form__grid">
+        <label class="field">
+          <span class="field__label">Nome</span>
+          <input class="field__input" formControlName="name" placeholder="João da Silva" />
+          @if (form.controls.name.touched && form.controls.name.invalid) {
+            <span class="field__error">Informe o nome</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">CNH</span>
+          <input class="field__input" formControlName="license_number" placeholder="12345678900" />
+          @if (form.controls.license_number.touched && form.controls.license_number.invalid) {
+            <span class="field__error">Informe a CNH</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Categoria</span>
+          <input class="field__input" formControlName="license_category" placeholder="D" />
+          @if (form.controls.license_category.touched && form.controls.license_category.invalid) {
+            <span class="field__error">Informe a categoria</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Veículo</span>
+          <select class="field__input" formControlName="vehicle_id">
+            <option value="">Sem veículo</option>
+            @for (vehicle of vehicles(); track vehicle.id) {
+              <option [value]="vehicle.id">{{ vehicle.plate }} — {{ vehicle.model }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      @if (formError()) {
+        <p class="alert" role="alert">{{ formError() }}</p>
+      }
+
+      <div class="form__actions">
+        <button type="button" class="btn" (click)="closeForm()">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          {{ saving() ? 'Salvando…' : 'Salvar' }}
+        </button>
+      </div>
+    </form>
+  }
+
+  <div class="card">
+    @if (loading()) {
+      <p class="muted">Carregando…</p>
+    } @else if (items().length === 0) {
+      <p class="muted">Nenhum motorista cadastrado.</p>
+    } @else {
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>CNH</th>
+            <th>Categoria</th>
+            <th>Veículo</th>
+            <th aria-label="Ações"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (driver of items(); track driver.id) {
+            <tr>
+              <td>{{ driver.name }}</td>
+              <td>{{ driver.license_number }}</td>
+              <td>{{ driver.license_category }}</td>
+              <td>{{ vehiclePlate(driver.vehicle_id) }}</td>
+              <td class="table__actions">
+                <button type="button" class="btn btn--sm" (click)="openEdit(driver)">Editar</button>
+                <button
+                  type="button"
+                  class="btn btn--sm btn--danger"
+                  (click)="confirmRemove(driver)"
+                >
+                  Remover
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</section>

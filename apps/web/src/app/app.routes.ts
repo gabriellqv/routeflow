@@ -27,32 +27,25 @@ export const routes: Routes = [
       {
         path: 'vehicles',
         loadComponent: () =>
-          import('./features/placeholder/placeholder').then((module) => module.Placeholder),
-        data: { title: 'Veículos' },
+          import('./features/vehicles/vehicles').then((module) => module.Vehicles),
       },
       {
         path: 'drivers',
-        loadComponent: () =>
-          import('./features/placeholder/placeholder').then((module) => module.Placeholder),
-        data: { title: 'Motoristas' },
+        loadComponent: () => import('./features/drivers/drivers').then((module) => module.Drivers),
       },
       {
         path: 'routes',
-        loadComponent: () =>
-          import('./features/placeholder/placeholder').then((module) => module.Placeholder),
-        data: { title: 'Rotas' },
+        loadComponent: () => import('./features/routes/routes').then((module) => module.Routes),
       },
       {
         path: 'deliveries',
         loadComponent: () =>
-          import('./features/placeholder/placeholder').then((module) => module.Placeholder),
-        data: { title: 'Entregas' },
+          import('./features/deliveries/deliveries').then((module) => module.Deliveries),
       },
       {
         path: 'maintenance',
         loadComponent: () =>
-          import('./features/placeholder/placeholder').then((module) => module.Placeholder),
-        data: { title: 'Manutenções' },
+          import('./features/maintenance/maintenance').then((module) => module.Maintenance),
       },
       {
         path: 'simulation',

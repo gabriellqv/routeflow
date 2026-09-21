@@ -1,0 +1,119 @@
+<section class="crud">
+  <header class="crud__header">
+    <div>
+      <h2 class="crud__title">Manutenções</h2>
+      <p class="crud__subtitle">Programe e acompanhe as manutenções da frota.</p>
+    </div>
+    <button type="button" class="btn btn--primary" (click)="openCreate()">Nova manutenção</button>
+  </header>
+
+  @if (error()) {
+    <p class="alert" role="alert">{{ error() }}</p>
+  }
+
+  @if (formVisible()) {
+    <form class="card form" [formGroup]="form" (ngSubmit)="save()">
+      <h3 class="form__title">{{ editingId() ? 'Editar manutenção' : 'Nova manutenção' }}</h3>
+
+      <div class="form__grid">
+        <label class="field">
+          <span class="field__label">Veículo</span>
+          <select class="field__input" formControlName="vehicle_id" [disabled]="!!editingId()">
+            <option value="">Selecione um veículo</option>
+            @for (vehicle of vehicles(); track vehicle.id) {
+              <option [value]="vehicle.id">{{ vehicle.plate }} — {{ vehicle.model }}</option>
+            }
+          </select>
+          @if (form.controls.vehicle_id.touched && form.controls.vehicle_id.invalid) {
+            <span class="field__error">Selecione o veículo</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Tipo</span>
+          <select class="field__input" formControlName="type">
+            @for (type of types; track type) {
+              <option [value]="type">{{ type }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Status</span>
+          <select class="field__input" formControlName="status">
+            @for (status of statuses; track status) {
+              <option [value]="status">{{ status }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      <label class="field">
+        <span class="field__label">Descrição</span>
+        <input
+          class="field__input"
+          formControlName="description"
+          placeholder="Troca de óleo e revisão de freios"
+        />
+        @if (form.controls.description.touched && form.controls.description.invalid) {
+          <span class="field__error">Informe a descrição</span>
+        }
+      </label>
+
+      @if (formError()) {
+        <p class="alert" role="alert">{{ formError() }}</p>
+      }
+
+      <div class="form__actions">
+        <button type="button" class="btn" (click)="closeForm()">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          {{ saving() ? 'Salvando…' : 'Salvar' }}
+        </button>
+      </div>
+    </form>
+  }
+
+  <div class="card">
+    @if (loading()) {
+      <p class="muted">Carregando…</p>
+    } @else if (items().length === 0) {
+      <p class="muted">Nenhuma manutenção cadastrada.</p>
+    } @else {
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Veículo</th>
+            <th>Tipo</th>
+            <th>Descrição</th>
+            <th>Status</th>
+            <th aria-label="Ações"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (maintenance of items(); track maintenance.id) {
+            <tr>
+              <td>{{ vehiclePlate(maintenance.vehicle_id) }}</td>
+              <td>{{ maintenance.type }}</td>
+              <td>{{ maintenance.description }}</td>
+              <td>
+                <span class="badge">{{ maintenance.status }}</span>
+              </td>
+              <td class="table__actions">
+                <button type="button" class="btn btn--sm" (click)="openEdit(maintenance)">
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--sm btn--danger"
+                  (click)="confirmRemove(maintenance)"
+                >
+                  Remover
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</section>
