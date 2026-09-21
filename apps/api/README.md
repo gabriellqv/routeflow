@@ -48,6 +48,7 @@ src/
 ├── routes/     # Entidade, CRUD de rotas com geometria PostGIS
 ├── vehicles/   # Entidade, CRUD e serviços de veículos
 ├── redis/      # Cliente Redis (ioredis) e ciclo de vida
+├── realtime/   # Gateway WebSocket (posições em tempo real)
 ├── health/     # Health check (Terminus)
 ├── users/      # Entidade e serviços de usuários
 ├── app.module.ts
@@ -156,6 +157,27 @@ O ciclo de vida é `scheduled` → `in_progress` → `done`. Ao entrar em andame
 `started_at` é preenchido e o veículo vai para `maintenance`; ao concluir, o
 `finished_at` é preenchido e o veículo volta para `idle`. Uma manutenção concluída
 não pode mudar de status (`400`).
+
+## Tempo real (WebSocket)
+
+O gateway expõe o namespace `/ws` (Socket.IO). A conexão exige um JWT válido,
+enviado no handshake via `auth.token` ou no cabeçalho `Authorization: Bearer
+<token>`. Conexões sem token válido são recusadas com o evento `unauthorized`.
+
+```js
+const socket = io('http://localhost:3000', {
+  path: '/ws',
+  auth: { token: accessToken },
+});
+
+socket.on('vehicle_positions', ({ event, data }) => {
+  // data: VehiclePositionMessage[]
+});
+```
+
+O gateway assina o canal Redis `vehicles:positions`, agrega as posições por
+janelas de ~100 ms (mantendo a última posição de cada veículo) e emite o evento
+`vehicle_positions` com o envelope `{ event, data }`.
 
 ## Variáveis de ambiente
 

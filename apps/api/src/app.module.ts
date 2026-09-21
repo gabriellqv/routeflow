@@ -6,6 +6,7 @@ import { DeliveriesModule } from './deliveries/deliveries.module.js';
 import { DriversModule } from './drivers/drivers.module.js';
 import { HealthModule } from './health/health.module.js';
 import { MaintenanceModule } from './maintenance/maintenance.module.js';
+import { RealtimeModule } from './realtime/realtime.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { RoutesModule } from './routes/routes.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -30,6 +31,7 @@ import { VehiclesModule } from './vehicles/vehicles.module.js';
     RoutesModule,
     DeliveriesModule,
     MaintenanceModule,
+    RealtimeModule,
   ],
 })
 export class AppModule {}
