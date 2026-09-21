@@ -32,13 +32,25 @@ npm run start --workspace @routeflow/web
 
 ```
 src/app/
-├── core/       # Cliente HTTP, sessão (JWT), interceptor, guard e base de CRUD
-├── features/   # login, vehicles, drivers, routes, deliveries, maintenance, placeholder (mapa/simulação)
+├── core/       # Cliente HTTP, sessão (JWT), interceptor, guard, base de CRUD e tempo real
+├── features/   # login, vehicles, drivers, routes, deliveries, maintenance, map, placeholder (simulação)
 ├── layout/     # Shell autenticado (sidebar, topbar, conteúdo)
 ├── app.config.ts   # Providers globais (router, HTTP, zoneless)
 ├── app.routes.ts   # Rotas e proteção por authGuard
 └── app.ts
 ```
+
+## Mapa em tempo real
+
+A feature `map` usa [MapLibre GL JS](https://maplibre.org/) para renderizar o
+mapa base (tiles raster configuráveis), desenhar os traçados das rotas e os
+veículos recebidos via WebSocket.
+
+- `RealtimeService` conecta ao gateway `/ws` (JWT no handshake), assina
+  `vehicle_positions` e `vehicle_event`, e mantém o estado por `vehicle_id` em
+  signals (com reconexão automática do `socket.io-client`).
+- Cada veículo é colorido pelo `status` (`in_route`, `stopped`, `fault`,
+  `maintenance`); clicar em um veículo abre um popup com os dados.
 
 ## Módulos de CRUD
 
@@ -62,7 +74,13 @@ reativos e espelham a validação dos DTOs.
 
 A URL base é resolvida em runtime por `window.__env.API_URL`, com fallback para
 `http://localhost:3000`. Para apontar para outra API em produção, sirva um
-`env.js` que defina `window.__env`.
+`env.js` que defina `window.__env` (ver `public/env.js`):
+
+| Chave | Descrição | Padrão |
+|---|---|---|
+| `API_URL` | URL base da API | `http://localhost:3000` |
+| `WS_URL` | URL do gateway WebSocket | derivada de `API_URL` (troca `http`→`ws`) |
+| `MAP_TILES_URL` | Template de tiles do mapa | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` |
 
 ## Testes
 

@@ -1,0 +1,26 @@
+<section class="map">
+  <header class="map__header">
+    <div>
+      <h2 class="map__title">Mapa em tempo real</h2>
+      <p class="map__subtitle">
+        {{ vehicleCount() }} veículo(s) monitorado(s) ·
+        <span class="map__status" [class.map__status--online]="connection() === 'connected'">
+          {{ connection() === 'connected' ? 'conectado' : 'desconectado' }}
+        </span>
+      </p>
+    </div>
+  </header>
+
+  @if (error()) {
+    <p class="alert" role="alert">{{ error() }}</p>
+  }
+
+  <div #mapContainer class="map__canvas"></div>
+
+  <ul class="map__legend">
+    <li><span class="dot dot--in_route"></span> Em rota</li>
+    <li><span class="dot dot--stopped"></span> Parado</li>
+    <li><span class="dot dot--fault"></span> Falha</li>
+    <li><span class="dot dot--maintenance"></span> Manutenção</li>
+  </ul>
+</section>
