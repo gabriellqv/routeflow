@@ -44,6 +44,7 @@ src/
 ├── database/   # Conexão com PostgreSQL (TypeORM) e migrations
 ├── deliveries/ # Entidade, CRUD e serviços de entregas (paradas)
 ├── drivers/    # Entidade, CRUD e serviços de motoristas
+├── events/     # Consumer da stream de eventos -> BullMQ notifications
 ├── maintenance/ # Entidade, CRUD e serviços de manutenções
 ├── routes/     # Entidade, CRUD de rotas com geometria PostGIS
 ├── vehicles/   # Entidade, CRUD e serviços de veículos
@@ -178,6 +179,14 @@ socket.on('vehicle_positions', ({ event, data }) => {
 O gateway assina o canal Redis `vehicles:positions`, agrega as posições por
 janelas de ~100 ms (mantendo a última posição de cada veículo) e emite o evento
 `vehicle_positions` com o envelope `{ event, data }`.
+
+## Eventos e notificações (BullMQ)
+
+O consumer de eventos cria um consumer group (`routeflow-api`) sobre a stream
+Redis `vehicles:events` e, a cada ~500 ms, lê as entradas novas com
+`XREADGROUP`. Cada evento é enfileirado como job `vehicle_event` na fila BullMQ
+`notifications` e confirmado com `XACK`. A entrega é ao-menos-uma-vez e o loop é
+encerrado de forma graciosa no shutdown.
 
 ## Variáveis de ambiente
 
