@@ -25,5 +25,14 @@ export default tseslint.config(
       },
     },
   },
+  {
+    // Código do navegador (workspace web).
+    files: ['apps/web/**/*.{ts,tsx,js,jsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+    },
+  },
   prettier,
 );

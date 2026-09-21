@@ -46,6 +46,10 @@ npm run docker:up
 
 # 4. Compilar os contratos compartilhados
 npm run build:contracts
+
+# 5. Subir a API e o web (em terminais separados)
+npm run start:dev --workspace @routeflow/api   # http://localhost:3000
+npm run start --workspace @routeflow/web       # http://localhost:4200
 ```
 
 Para parar a infraestrutura: `npm run docker:down`.
@@ -60,6 +64,8 @@ Para parar a infraestrutura: `npm run docker:down`.
 | `npm run format:check` | Verifica formatação sem alterar |
 | `npm run typecheck` | Checagem de tipos de todos os workspaces |
 | `npm run build:contracts` | Compila `packages/contracts` |
+| `npm run start --workspace @routeflow/api` | Sobe a API em modo watch |
+| `npm run start --workspace @routeflow/web` | Sobe o web (Angular) em modo dev |
 | `npm run docker:up` | Sobe Postgres + Redis |
 | `npm run docker:down` | Derruba a infraestrutura |
 | `npm run docker:logs` | Acompanha os logs da infraestrutura |

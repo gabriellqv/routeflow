@@ -1,0 +1,32 @@
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand__mark">RF</span>
+      <span class="brand__name">RouteFlow</span>
+    </div>
+
+    <nav class="nav" aria-label="Navegação principal">
+      @for (item of navItems; track item.path) {
+        <a
+          class="nav__item"
+          [routerLink]="item.path"
+          routerLinkActive="nav__item--active"
+          [routerLinkActiveOptions]="{ exact: false }"
+        >
+          {{ item.label }}
+        </a>
+      }
+    </nav>
+  </aside>
+
+  <div class="content">
+    <header class="topbar">
+      <h1 class="topbar__title">Painel de operações</h1>
+      <button type="button" class="topbar__logout" (click)="logout()">Sair</button>
+    </header>
+
+    <main class="page">
+      <router-outlet />
+    </main>
+  </div>
+</div>
