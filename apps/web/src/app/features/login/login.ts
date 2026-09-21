@@ -29,8 +29,8 @@ export class Login {
 
   /** Formulário reativo de credenciais. */
   protected readonly form = this.formBuilder.nonNullable.group({
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required]],
+    email: ['admin@routeflow.com', [Validators.required, Validators.email]],
+    password: ['admin123', [Validators.required]],
   });
 
   /**

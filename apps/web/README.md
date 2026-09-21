@@ -32,18 +32,27 @@ npm run start --workspace @routeflow/web
 
 ```
 src/app/
-├── core/       # Cliente HTTP, sessão (JWT), interceptor e guard de rotas
-├── features/   # Páginas: login, placeholder (CRUD/mapa/simulação nos próximos PRs)
+├── core/       # Cliente HTTP, sessão (JWT), interceptor, guard e base de CRUD
+├── features/   # login, vehicles, drivers, routes, deliveries, maintenance, placeholder (mapa/simulação)
 ├── layout/     # Shell autenticado (sidebar, topbar, conteúdo)
 ├── app.config.ts   # Providers globais (router, HTTP, zoneless)
 ├── app.routes.ts   # Rotas e proteção por authGuard
 └── app.ts
 ```
 
+## Módulos de CRUD
+
+As telas de CRUD (veículos, motoristas, rotas, entregas e manutenções) usam a
+base `CrudBase` + `ResourceService`, que padronizam listagem, criação, edição e
+remoção sobre os endpoints da API (`/api/vehicles`, `/api/drivers`,
+`/api/routes`, `/api/deliveries`, `/api/maintenance`). Os formulários são
+reativos e espelham a validação dos DTOs.
+
 ## Autenticação
 
 - A tela de login chama `POST /api/auth/login` e guarda o JWT no
-  `localStorage` (via `AuthStore`).
+  `localStorage` (via `AuthStore`). O administrador de demonstração é criado pelo
+  seed da API (`admin@routeflow.com` / `admin123`).
 - O `authInterceptor` anexa `Authorization: Bearer <token>` às requisições e
   limpa a sessão ao receber `401`.
 - O `authGuard` protege a área autenticada e redireciona para `/login`

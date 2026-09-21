@@ -6,19 +6,19 @@ import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
  */
 export class RegisterDto {
   /** E-mail único que será usado como credencial. */
-  @ApiProperty({ example: 'motorista@routeflow.dev' })
+  @ApiProperty({ example: 'admin@routeflow.com' })
   @IsEmail()
   email: string;
 
   /** Nome de exibição do usuário. */
-  @ApiProperty({ example: 'João da Silva' })
+  @ApiProperty({ example: 'Administrador' })
   @IsString()
   @MinLength(2)
   @MaxLength(120)
   name: string;
 
   /** Senha em texto puro; será armazenada apenas como hash. */
-  @ApiProperty({ example: 'senha-secreta', minLength: 8 })
+  @ApiProperty({ example: 'admin123', minLength: 8 })
   @IsString()
   @MinLength(8)
   @MaxLength(72)

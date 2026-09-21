@@ -6,12 +6,12 @@ import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
  */
 export class LoginDto {
   /** E-mail cadastrado do usuário. */
-  @ApiProperty({ example: 'motorista@routeflow.dev' })
+  @ApiProperty({ example: 'admin@routeflow.com' })
   @IsEmail()
   email: string;
 
   /** Senha em texto puro, validada contra o hash armazenado. */
-  @ApiProperty({ example: 'senha-secreta' })
+  @ApiProperty({ example: 'admin123' })
   @IsString()
   @MinLength(8)
   @MaxLength(72)

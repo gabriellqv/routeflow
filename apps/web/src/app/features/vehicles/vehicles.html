@@ -1,0 +1,134 @@
+<section class="crud">
+  <header class="crud__header">
+    <div>
+      <h2 class="crud__title">Veículos</h2>
+      <p class="crud__subtitle">Gerencie a frota, o status e a alocação de motoristas.</p>
+    </div>
+    <button type="button" class="btn btn--primary" (click)="openCreate()">Novo veículo</button>
+  </header>
+
+  @if (error()) {
+    <p class="alert" role="alert">{{ error() }}</p>
+  }
+
+  @if (formVisible()) {
+    <form class="card form" [formGroup]="form" (ngSubmit)="save()">
+      <h3 class="form__title">{{ editingId() ? 'Editar veículo' : 'Novo veículo' }}</h3>
+
+      <div class="form__grid">
+        <label class="field">
+          <span class="field__label">Placa</span>
+          <input class="field__input" formControlName="plate" placeholder="ABC1234" />
+          @if (form.controls.plate.touched && form.controls.plate.invalid) {
+            <span class="field__error">Informe uma placa (5–10 caracteres)</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Tipo</span>
+          <select class="field__input" formControlName="type">
+            @for (type of vehicleTypes; track type) {
+              <option [value]="type">{{ type }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Modelo</span>
+          <input class="field__input" formControlName="model" placeholder="Volvo FH" />
+          @if (form.controls.model.touched && form.controls.model.invalid) {
+            <span class="field__error">Informe o modelo</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Capacidade (kg)</span>
+          <input class="field__input" type="number" formControlName="capacity_kg" min="0" />
+          @if (form.controls.capacity_kg.touched && form.controls.capacity_kg.invalid) {
+            <span class="field__error">Informe uma capacidade válida</span>
+          }
+        </label>
+
+        @if (editingId()) {
+          <label class="field">
+            <span class="field__label">Status</span>
+            <select class="field__input" formControlName="status">
+              @for (status of vehicleStatuses; track status) {
+                <option [value]="status">{{ status }}</option>
+              }
+            </select>
+          </label>
+        }
+
+        <label class="field">
+          <span class="field__label">Motorista</span>
+          <select class="field__input" formControlName="driver_id">
+            <option value="">Sem motorista</option>
+            @for (driver of drivers(); track driver.id) {
+              <option [value]="driver.id">{{ driver.name }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      @if (formError()) {
+        <p class="alert" role="alert">{{ formError() }}</p>
+      }
+
+      <div class="form__actions">
+        <button type="button" class="btn" (click)="closeForm()">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          {{ saving() ? 'Salvando…' : 'Salvar' }}
+        </button>
+      </div>
+    </form>
+  }
+
+  <div class="card">
+    @if (loading()) {
+      <p class="muted">Carregando…</p>
+    } @else if (items().length === 0) {
+      <p class="muted">Nenhum veículo cadastrado.</p>
+    } @else {
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Placa</th>
+            <th>Tipo</th>
+            <th>Modelo</th>
+            <th>Capacidade</th>
+            <th>Status</th>
+            <th>Motorista</th>
+            <th aria-label="Ações"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (vehicle of items(); track vehicle.id) {
+            <tr>
+              <td>{{ vehicle.plate }}</td>
+              <td>{{ vehicle.type }}</td>
+              <td>{{ vehicle.model }}</td>
+              <td>{{ vehicle.capacity_kg }} kg</td>
+              <td>
+                <span class="badge">{{ vehicle.status }}</span>
+              </td>
+              <td>{{ driverName(vehicle.driver_id) }}</td>
+              <td class="table__actions">
+                <button type="button" class="btn btn--sm" (click)="openEdit(vehicle)">
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--sm btn--danger"
+                  (click)="confirmRemove(vehicle)"
+                >
+                  Remover
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</section>
