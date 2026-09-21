@@ -4,6 +4,7 @@ import { AppConfigModule } from './config/config.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import { DeliveriesModule } from './deliveries/deliveries.module.js';
 import { DriversModule } from './drivers/drivers.module.js';
+import { EventsModule } from './events/events.module.js';
 import { HealthModule } from './health/health.module.js';
 import { MaintenanceModule } from './maintenance/maintenance.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
@@ -32,6 +33,7 @@ import { VehiclesModule } from './vehicles/vehicles.module.js';
     DeliveriesModule,
     MaintenanceModule,
     RealtimeModule,
+    EventsModule,
   ],
 })
 export class AppModule {}
