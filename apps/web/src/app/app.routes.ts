@@ -48,8 +48,7 @@ export const routes: Routes = [
       {
         path: 'simulation',
         loadComponent: () =>
-          import('./features/placeholder/placeholder').then((module) => module.Placeholder),
-        data: { title: 'Simulação' },
+          import('./features/simulation/simulation').then((module) => module.Simulation),
       },
     ],
   },

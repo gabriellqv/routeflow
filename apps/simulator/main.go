@@ -1,7 +1,7 @@
 // Command simulator é o ponto de entrada do simulador de veículos do
-// RouteFlow. Nesta etapa (bootstrap), ele valida a configuração, conecta ao
-// Redis e expõe um health check HTTP; o movimento dos veículos será adicionado
-// nas etapas seguintes.
+// RouteFlow. Ele valida a configuração, conecta ao Redis, autentica na API,
+// carrega veículos/rotas e inicia o movimento, expondo um health check e um
+// endpoint de controle (start/pause/stop) via HTTP.
 package main
 
 import (
@@ -15,6 +15,7 @@ import (
 
 	"routeflow/simulator/internal/api"
 	"routeflow/simulator/internal/config"
+	"routeflow/simulator/internal/control"
 	"routeflow/simulator/internal/emitter"
 	"routeflow/simulator/internal/mover"
 	"routeflow/simulator/internal/redisx"
@@ -38,7 +39,9 @@ func main() {
 	}
 	log.Printf("conectado ao Redis em %s", cfg.RedisURL)
 
-	apiClient := api.New(cfg.APIURL)
+	controller := control.New(control.StateRunning)
+
+	apiClient := api.New(cfg.APIURL, api.Credentials{Email: cfg.APIEmail, Password: cfg.APIPassword})
 	if err := apiClient.Health(ctx); err != nil {
 		log.Printf("aviso: API em %s indisponível: %v", cfg.APIURL, err)
 	} else {
@@ -47,11 +50,11 @@ func main() {
 
 	httpServer := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: server.NewHandler(),
+		Handler: server.NewHandler(controller),
 	}
 
 	go func() {
-		log.Printf("health check em :%s/health", cfg.Port)
+		log.Printf("health check e controle em :%s", cfg.Port)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("servidor HTTP encerrou com erro: %v", err)
 		}
@@ -60,8 +63,13 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
-	// Carrega veículos e rotas atribuídas da API e inicia o movimento.
+	// Autentica e carrega veículos/rotas atribuídas da API, iniciando o movimento.
 	go func() {
+		if err := apiClient.Login(ctx); err != nil {
+			log.Printf("falha ao autenticar na API: %v", err)
+			return
+		}
+
 		vehicles, err := apiClient.LoadVehicles(ctx)
 		if err != nil {
 			log.Printf("falha ao carregar veículos: %v", err)
@@ -75,7 +83,11 @@ func main() {
 
 		log.Printf("simulando %d veículo(s) em %d rota(s)", len(vehicles), len(routes))
 
-		m := mover.New(emitter.New(redisClient), 36, time.Second)
+		m := mover.NewWithOptions(emitter.New(redisClient), mover.Options{
+			SpeedKmh:     36,
+			TickInterval: time.Second,
+			Controller:   controller,
+		})
 		m.Run(ctx, routes, vehicles)
 	}()
 

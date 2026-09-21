@@ -32,8 +32,8 @@ npm run start --workspace @routeflow/web
 
 ```
 src/app/
-├── core/       # Cliente HTTP, sessão (JWT), interceptor, guard, base de CRUD e tempo real
-├── features/   # login, vehicles, drivers, routes, deliveries, maintenance, map, placeholder (simulação)
+├── core/       # Cliente HTTP, sessão (JWT), interceptor, guard, base de CRUD, tempo real e config do simulador
+├── features/   # login, vehicles, drivers, routes, deliveries, maintenance, map, simulation
 ├── layout/     # Shell autenticado (sidebar, topbar, conteúdo)
 ├── app.config.ts   # Providers globais (router, HTTP, zoneless)
 ├── app.routes.ts   # Rotas e proteção por authGuard
@@ -51,6 +51,12 @@ veículos recebidos via WebSocket.
   signals (com reconexão automática do `socket.io-client`).
 - Cada veículo é colorido pelo `status` (`in_route`, `stopped`, `fault`,
   `maintenance`); clicar em um veículo abre um popup com os dados.
+
+## Controle da simulação
+
+A feature `simulation` chama o endpoint `POST /control` do simulador Go
+(`start`/`pause`/`stop`) e exibe o estado atual. A URL do simulador é
+configurável por `window.__env.SIMULATOR_URL` (padrão `http://localhost:8080`).
 
 ## Módulos de CRUD
 
@@ -79,8 +85,9 @@ A URL base é resolvida em runtime por `window.__env.API_URL`, com fallback para
 | Chave | Descrição | Padrão |
 |---|---|---|
 | `API_URL` | URL base da API | `http://localhost:3000` |
-| `WS_URL` | URL do gateway WebSocket | derivada de `API_URL` (troca `http`→`ws`) |
+| `WS_URL` | URL do gateway WebSocket | derivada de `API_URL` (troca `http→ws`) |
 | `MAP_TILES_URL` | Template de tiles do mapa | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` |
+| `SIMULATOR_URL` | URL base do simulador Go | `http://localhost:8080` |
 
 ## Testes
 
