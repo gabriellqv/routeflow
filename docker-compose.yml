@@ -32,6 +32,43 @@ services:
       timeout: 5s
       retries: 10
 
+  valhalla:
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    container_name: routeflow-valhalla
+    restart: unless-stopped
+    ports:
+      - '${VALHALLA_PORT:-8002}:8002'
+    environment:
+      - build_elevation=False
+      - build_admins=True
+      - build_time_zones=True
+      - serve_tiles=True
+    volumes:
+      - valhalla_data:/data
+      - ./infra/osm:/custom_files
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:8002/status || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  tiles:
+    image: maptiler/tileserver-gl-light:latest
+    container_name: routeflow-tiles
+    restart: unless-stopped
+    command: ['-p', '8080']
+    ports:
+      - '${TILES_PORT:-8081}:8080'
+    volumes:
+      - ./infra/tiles:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:8080/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
   redis_data:
+  valhalla_data:

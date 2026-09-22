@@ -47,6 +47,10 @@ export interface RouteDto {
   waypoints: WaypointDto[];
   assigned_vehicle_id: string | null;
   status: RouteStatus;
+  distance_m?: number | null;
+  duration_s?: number | null;
+  profile?: string | null;
+  geometry_source?: 'manual' | 'valhalla';
 }
 
 export interface RouteMetricsDto {

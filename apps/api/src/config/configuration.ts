@@ -14,4 +14,8 @@ export default (): AppEnvironment => ({
   databaseUrl: process.env.DATABASE_URL as string,
   redisUrl: process.env.REDIS_URL as string,
   jwtSecret: process.env.JWT_SECRET as string,
+  routingProvider: process.env.ROUTING_PROVIDER ?? 'valhalla',
+  routingBaseUrl: process.env.ROUTING_BASE_URL ?? 'http://localhost:8002',
+  routingTimeoutMs: Number.parseInt(process.env.ROUTING_TIMEOUT_MS ?? '5000', 10),
+  routingSnapToleranceM: Number.parseFloat(process.env.ROUTING_SNAP_TOLERANCE_M ?? '150'),
 });

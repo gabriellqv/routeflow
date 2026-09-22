@@ -67,6 +67,22 @@ export class Route {
   @Column({ type: 'text', default: RouteStatus.Created })
   status: RouteStatus;
 
+  /** Distância total da rota em metros calculada pelo motor. */
+  @Column({ type: 'double precision', name: 'distance_m', nullable: true })
+  distanceM: number | null;
+
+  /** Duração estimada da rota em segundos calculada pelo motor. */
+  @Column({ type: 'double precision', name: 'duration_s', nullable: true })
+  durationS: number | null;
+
+  /** Perfil de roteamento ('auto' | 'truck' | 'motorcycle'). */
+  @Column({ type: 'text', nullable: true })
+  profile: string | null;
+
+  /** Origem da geometria ('manual' ou 'valhalla'). */
+  @Column({ type: 'text', name: 'geometry_source', default: 'manual' })
+  geometrySource: 'manual' | 'valhalla';
+
   /** Data de criação do registro. */
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;

@@ -18,4 +18,10 @@ export const envValidationSchema = Joi.object({
     .uri({ scheme: ['redis', 'rediss'] })
     .required(),
   JWT_SECRET: Joi.string().min(16).required(),
+  ROUTING_PROVIDER: Joi.string().default('valhalla'),
+  ROUTING_BASE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:8002'),
+  ROUTING_TIMEOUT_MS: Joi.number().positive().default(5000),
+  ROUTING_SNAP_TOLERANCE_M: Joi.number().positive().default(150),
 });
