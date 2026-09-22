@@ -87,7 +87,7 @@ A URL base é resolvida em runtime por `window.__env.API_URL`, com fallback para
 |---|---|---|
 | `API_URL` | URL base da API | `http://localhost:3000` |
 | `WS_URL` | URL do gateway WebSocket | derivada de `API_URL` (troca `http→ws`) |
-| `MAP_TILES_URL` | Template de tiles do mapa | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` |
+| `MAP_STYLE_URL` | Estilo vetorial OpenMapTiles (MapLibre GL JSON) | `https://basemaps.cartocdn.com/gl/positron-gl-style/style.json` |
 | `SIMULATOR_URL` | URL base do simulador Go | `http://localhost:8080` |
 
 ## Testes

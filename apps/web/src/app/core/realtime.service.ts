@@ -93,11 +93,18 @@ export class RealtimeService {
       this.stopReconnection();
       this.statusSignal.set('disconnected');
       this.socket?.disconnect();
+      this.socket = undefined;
     });
 
-    this.socket.on(WsEvents.vehiclePositions, (envelope: VehiclePositionsEnvelope) => {
-      this.applyPositions(envelope.data);
-    });
+    this.socket.on(
+      WsEvents.vehiclePositions,
+      (envelope: VehiclePositionsEnvelope | VehiclePositionMessage[]) => {
+        const positions = Array.isArray(envelope) ? envelope : envelope?.data;
+        if (Array.isArray(positions)) {
+          this.applyPositions(positions);
+        }
+      },
+    );
 
     this.socket.on(WsEvents.vehicleEvent, (event: VehicleEventMessage) => {
       this.lastEventSignal.set(event);

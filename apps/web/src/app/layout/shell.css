@@ -5,100 +5,50 @@
 
 .layout {
   display: grid;
-  grid-template-columns: 220px 1fr;
   min-height: 100vh;
+  grid-template-columns: 240px 1fr;
 }
 
 .sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding: 1.5rem 1rem;
-  background: #0f172a;
-  color: #e2e8f0;
+  @apply flex flex-col gap-6 p-6 bg-slate-950 text-slate-200 border-r border-slate-800/80;
 }
 
 .brand {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  font-weight: 700;
-  font-size: 1.125rem;
+  @apply flex items-center gap-3 font-bold text-lg tracking-tight text-white;
 }
 
 .brand__mark {
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.5rem;
-  background: #2563eb;
-  color: #fff;
-  font-size: 0.875rem;
+  @apply grid place-items-center w-8 h-8 rounded-lg bg-blue-600 text-white font-black text-sm shadow-md shadow-blue-500/20;
 }
 
 .nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  @apply flex flex-col gap-1.5;
 }
 
 .nav__item {
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  color: #cbd5e1;
-  text-decoration: none;
-  font-size: 0.9375rem;
-}
-
-.nav__item:hover {
-  background: #1e293b;
-  color: #fff;
+  @apply flex items-center px-3 py-2 rounded-lg text-slate-400 text-sm font-medium transition-all hover:bg-slate-900 hover:text-white no-underline;
 }
 
 .nav__item--active {
-  background: #2563eb;
-  color: #fff;
-  font-weight: 600;
+  @apply bg-blue-600 text-white font-semibold shadow-sm shadow-blue-600/30 hover:bg-blue-600 hover:text-white;
 }
 
 .content {
-  display: flex;
-  flex-direction: column;
-  background: #f1f5f9;
+  @apply flex flex-col bg-slate-50 min-h-screen;
 }
 
 .topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.875rem 1.5rem;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
+  @apply flex items-center justify-between px-8 py-4 bg-white border-b border-slate-200/80 sticky top-0 z-10;
 }
 
 .topbar__title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #0f172a;
+  @apply m-0 text-base font-semibold text-slate-800 tracking-tight;
 }
 
 .topbar__logout {
-  padding: 0.375rem 0.75rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.5rem;
-  background: #fff;
-  color: #334155;
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-
-.topbar__logout:hover {
-  background: #f8fafc;
+  @apply px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:text-slate-900 shadow-sm transition;
 }
 
 .page {
-  flex: 1;
-  padding: 1.5rem;
+  @apply flex-1 p-8;
 }
