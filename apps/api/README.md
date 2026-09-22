@@ -46,8 +46,9 @@ src/
 ├── drivers/    # Entidade, CRUD e serviços de motoristas
 ├── events/     # Consumer da stream de eventos -> BullMQ (notifications/deliveries/maintenance)
 ├── maintenance/ # Entidade, CRUD e serviços de manutenções
+├── positions/  # Histórico de posições (PostGIS) e log de eventos
 ├── queue/      # Configuração global do BullMQ (conexão Redis)
-├── workers/    # Workers BullMQ (entregas e manutenção)
+├── workers/    # Workers BullMQ (entregas, manutenção e snapshots)
 ├── routes/     # Entidade, CRUD de rotas com geometria PostGIS
 ├── vehicles/   # Entidade, CRUD e serviços de veículos
 ├── redis/      # Cliente Redis (ioredis) e ciclo de vida
@@ -205,6 +206,16 @@ Os eventos de entrega e manutenção também são roteados para as filas
 | `delivery_completed` | `deliveries` | Entrega `done` + `delivered_at` |
 | `maintenance_started` | `maintenance` | Manutenção `in_progress` + veículo `maintenance` |
 | `maintenance_completed` | `maintenance` | Manutenção `done` + veículo `idle` |
+
+Todo evento consumido também é persistido em `event_log` (histórico).
+
+## Histórico de posições (PostGIS)
+
+Um job recorrente (`position-snapshots`, a cada ~15 s) lê o estado atual de
+todos os veículos do Redis (`vehicle:{id}:state` + `vehicles:geo`) e grava em
+lote na tabela `vehicle_positions` (`geometry(Point, 4326)`, `speed_kmh`,
+`status`, `recorded_at`) com índice GiST, permitindo consultas por região via
+`ST_DWithin`.
 
 ## Variáveis de ambiente
 

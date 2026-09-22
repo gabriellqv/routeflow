@@ -10,6 +10,7 @@ import type { VehicleEventMessage } from '@routeflow/contracts';
 import { BullQueues, RedisStreams, VehicleEventType } from '@routeflow/contracts';
 import type { Queue } from 'bullmq';
 import type { Redis } from 'ioredis';
+import { EventLogService } from '../positions/event-log.service.js';
 import { REDIS_CLIENT } from '../redis/redis.constants.js';
 
 /** Nome do consumer group da API sobre a stream de eventos. */
@@ -61,6 +62,7 @@ export class EventsConsumerService implements OnModuleInit, OnApplicationShutdow
     @InjectQueue(BullQueues.notifications) private readonly notifications: Queue,
     @InjectQueue(BullQueues.deliveries) private readonly deliveries: Queue,
     @InjectQueue(BullQueues.maintenance) private readonly maintenance: Queue,
+    private readonly eventLog: EventLogService,
   ) {}
 
   /**
@@ -233,6 +235,7 @@ export class EventsConsumerService implements OnModuleInit, OnApplicationShutdow
    * @param event Evento a ser enfileirado.
    */
   private async enqueue(event: VehicleEventMessage): Promise<void> {
+    await this.eventLog.save(event);
     await this.notifications.add('vehicle_event', event);
 
     const targetQueue = EVENT_QUEUE[event.type];

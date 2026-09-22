@@ -9,6 +9,7 @@ import {
 } from '@routeflow/contracts';
 import type { Queue } from 'bullmq';
 import type { Redis } from 'ioredis';
+import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
 import { REDIS_CLIENT } from '../src/redis/redis.constants.js';
 import { setupApplication } from '../src/setup-app.js';
@@ -43,6 +44,8 @@ describe('Eventos (e2e)', () => {
   let app: INestApplication;
   let redis: Redis;
   let queue: Queue;
+  let dataSource: DataSource;
+  let vehicleId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -55,10 +58,21 @@ describe('Eventos (e2e)', () => {
 
     redis = app.get<Redis>(REDIS_CLIENT);
     queue = app.get<Queue>(getQueueToken(BullQueues.notifications));
+    dataSource = app.get(DataSource);
 
     // Remove resíduos de execuções anteriores.
     await redis.del(RedisStreams.vehiclesEvents);
     await queue.obliterate({ force: true }).catch(() => undefined);
+  });
+
+  beforeEach(async () => {
+    await dataSource.query('TRUNCATE TABLE "event_log", "vehicles" RESTART IDENTITY CASCADE');
+
+    const [vehicle] = await dataSource.query<{ id: string }[]>(
+      `INSERT INTO "vehicles" ("plate", "type", "model", "capacity_kg", "status")
+       VALUES ('EVTL01', 'truck', 'Volvo FH', 12000, 'in_route') RETURNING "id"`,
+    );
+    vehicleId = vehicle.id;
   });
 
   afterAll(async () => {
@@ -67,9 +81,9 @@ describe('Eventos (e2e)', () => {
     await app.close();
   });
 
-  it('deve consumir a stream e enfileirar o evento em notifications', async () => {
+  it('deve consumir a stream, registrar o evento e enfileirá-lo em notifications', async () => {
     const event: VehicleEventMessage = {
-      vehicle_id: 'vehicle-e2e',
+      vehicle_id: vehicleId,
       type: VehicleEventType.VehicleFault,
       payload: { code: 'E2E', description: 'Falha simulada' },
       ts: new Date().toISOString(),
@@ -86,6 +100,13 @@ describe('Eventos (e2e)', () => {
     const job = jobs.find((candidate) => candidate.name === 'vehicle_event');
 
     expect(job?.data).toMatchObject(event);
+
+    // O evento deve ter sido persistido no histórico.
+    const [logged] = await dataSource.query<{ type: string }[]>(
+      'SELECT "type" FROM "event_log" WHERE "vehicle_id" = $1',
+      [vehicleId],
+    );
+    expect(logged.type).toBe(VehicleEventType.VehicleFault);
 
     // O evento deve ter sido confirmado no consumer group.
     const pending = (await redis.xpending(RedisStreams.vehiclesEvents, 'routeflow-api')) as [
