@@ -58,6 +58,10 @@ export function toRouteResponse(route: Route): RouteResponseDto {
     waypoints: route.waypoints,
     assigned_vehicle_id: route.assignedVehicleId,
     status: route.status,
+    distance_m: route.distanceM ?? null,
+    duration_s: route.durationS ?? null,
+    profile: route.profile ?? null,
+    geometry_source: route.geometrySource ?? 'manual',
   };
 }
 

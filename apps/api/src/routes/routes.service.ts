@@ -1,8 +1,14 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
 import type { NearbyRouteDto, RouteMetricsDto } from '@routeflow/contracts';
 import { toRouteResponse } from '../common/mappers.js';
+import { RoutingService } from '../routing/routing.service.js';
 import { Vehicle } from '../vehicles/vehicle.entity.js';
 import { CreateRouteDto } from './dto/create-route.dto.js';
 import { RouteResponseDto } from './dto/route-response.dto.js';
@@ -12,15 +18,16 @@ import { Route } from './route.entity.js';
 /**
  * Serviço de rotas.
  *
- * Concentra o CRUD e a atribuição 1—1 entre rota e veículo. O lado dono é
- * `routes.assigned_vehicle_id`: atribuir uma rota a um veículo a remove de
- * qualquer outro veículo.
+ * Concentra o CRUD, o cálculo viário via RoutingService e a atribuição 1—1
+ * entre rota e veículo. O lado dono é `routes.assigned_vehicle_id`: atribuir
+ * uma rota a um veículo a remove de qualquer outro veículo.
  */
 @Injectable()
 export class RoutesService {
   constructor(
     @InjectRepository(Route) private readonly repository: Repository<Route>,
     @InjectRepository(Vehicle) private readonly vehicleRepository: Repository<Vehicle>,
+    private readonly routingService: RoutingService,
   ) {}
 
   /**
@@ -47,21 +54,53 @@ export class RoutesService {
   /**
    * Cria uma nova rota.
    *
+   * Se forem informados no mínimo 2 waypoints, o traçado é gerado automaticamente
+   * pelo motor de rotas (Valhalla) encaixado na malha viária conforme o tipo de veículo.
+   *
    * @param dto Dados de criação.
    * @returns DTO de resposta da rota criada.
+   * @throws BadRequestException Se nem waypoints nem geometry válidos forem informados.
    * @throws ConflictException Quando o veículo já possui outra rota atribuída.
    * @throws NotFoundException Quando o veículo informado não existe.
    */
   async create(dto: CreateRouteDto): Promise<RouteResponseDto> {
     const assignedVehicleId = dto.assigned_vehicle_id ?? null;
-    await this.ensureVehicleIsAssignable(assignedVehicleId);
+    const vehicle = await this.ensureVehicleIsAssignable(assignedVehicleId);
 
-    const route = this.repository.create({
-      name: dto.name,
-      geometry: dto.geometry,
-      waypoints: dto.waypoints ?? [],
-      assignedVehicleId,
-    });
+    let route: Route;
+
+    if (dto.waypoints && dto.waypoints.length >= 2) {
+      const routed = await this.routingService.route({
+        waypoints: dto.waypoints,
+        vehicleType: vehicle?.type,
+      });
+
+      route = this.repository.create({
+        name: dto.name,
+        geometry: routed.geometry,
+        waypoints: dto.waypoints,
+        assignedVehicleId,
+        distanceM: routed.distanceM,
+        durationS: routed.durationS,
+        profile: this.routingService.resolveProfile(vehicle?.type),
+        geometrySource: 'valhalla',
+      });
+    } else if (dto.geometry) {
+      route = this.repository.create({
+        name: dto.name,
+        geometry: dto.geometry,
+        waypoints: dto.waypoints ?? [],
+        assignedVehicleId,
+        distanceM: null,
+        durationS: null,
+        profile: null,
+        geometrySource: 'manual',
+      });
+    } else {
+      throw new BadRequestException(
+        'É necessário informar waypoints com ao menos 2 pontos ou uma geometria válida',
+      );
+    }
 
     await this.repository.save(route);
     return this.findOne(route.id);
@@ -69,6 +108,9 @@ export class RoutesService {
 
   /**
    * Atualiza parcialmente uma rota.
+   *
+   * Se os waypoints mudarem (mínimo 2 pontos), o traçado e métricas são recalculados.
+   * Se o veículo atribuído mudar de categoria (ex.: van para caminhão), o perfil é recomputado.
    *
    * @param id Identificador da rota.
    * @param dto Campos a atualizar.
@@ -80,13 +122,54 @@ export class RoutesService {
     const route = await this.getOrFail(id);
 
     if (dto.name !== undefined) route.name = dto.name;
-    if (dto.geometry !== undefined) route.geometry = dto.geometry;
-    if (dto.waypoints !== undefined) route.waypoints = dto.waypoints;
     if (dto.status !== undefined) route.status = dto.status;
 
+    let vehicle: Vehicle | null = null;
+    let vehicleChanged = false;
+
     if (dto.assigned_vehicle_id !== undefined) {
-      await this.ensureVehicleIsAssignable(dto.assigned_vehicle_id, id);
+      vehicle = await this.ensureVehicleIsAssignable(dto.assigned_vehicle_id, id);
       route.assignedVehicleId = dto.assigned_vehicle_id;
+      vehicleChanged = true;
+    } else if (route.assignedVehicleId) {
+      vehicle = await this.vehicleRepository.findOne({ where: { id: route.assignedVehicleId } });
+    }
+
+    if (dto.waypoints !== undefined) {
+      if (dto.waypoints.length >= 2) {
+        const routed = await this.routingService.route({
+          waypoints: dto.waypoints,
+          vehicleType: vehicle?.type,
+        });
+
+        route.geometry = routed.geometry;
+        route.waypoints = dto.waypoints;
+        route.distanceM = routed.distanceM;
+        route.durationS = routed.durationS;
+        route.profile = this.routingService.resolveProfile(vehicle?.type);
+        route.geometrySource = 'valhalla';
+      } else {
+        route.waypoints = dto.waypoints;
+      }
+    } else if (vehicleChanged && route.waypoints && route.waypoints.length >= 2) {
+      const newProfile = this.routingService.resolveProfile(vehicle?.type);
+      if (route.profile && route.profile !== newProfile) {
+        const routed = await this.routingService.route({
+          waypoints: route.waypoints,
+          vehicleType: vehicle?.type,
+        });
+        route.geometry = routed.geometry;
+        route.distanceM = routed.distanceM;
+        route.durationS = routed.durationS;
+        route.profile = newProfile;
+        route.geometrySource = 'valhalla';
+      }
+    } else if (dto.geometry !== undefined) {
+      route.geometry = dto.geometry;
+      route.geometrySource = 'manual';
+      route.distanceM = null;
+      route.durationS = null;
+      route.profile = null;
     }
 
     await this.repository.save(route);
@@ -195,15 +278,16 @@ export class RoutesService {
    *
    * @param vehicleId Identificador do veículo, ou `null` (nada a validar).
    * @param keepRouteId Rota que deve manter a atribuição, se houver.
+   * @returns O veículo encontrado ou `null` quando `vehicleId` for nulo.
    * @throws NotFoundException Quando o veículo não existe.
    * @throws ConflictException Quando o veículo já possui outra rota.
    */
   private async ensureVehicleIsAssignable(
     vehicleId: string | null,
     keepRouteId?: string,
-  ): Promise<void> {
+  ): Promise<Vehicle | null> {
     if (vehicleId === null) {
-      return;
+      return null;
     }
 
     const vehicle = await this.vehicleRepository.findOne({ where: { id: vehicleId } });
@@ -218,5 +302,7 @@ export class RoutesService {
     if (existing) {
       throw new ConflictException('Veículo já possui uma rota atribuída');
     }
+
+    return vehicle;
   }
 }

@@ -11,6 +11,8 @@ import {
   VehicleType,
 } from '@routeflow/contracts';
 import { envValidationSchema } from '../../config/env.validation.js';
+import { ValhallaProvider } from '../../routing/valhalla.provider.js';
+import type { RoutingProfile } from '../../routing/routing.types.js';
 
 loadEnv({ path: ['../../.env', '.env'], quiet: true });
 
@@ -45,6 +47,22 @@ function resolveDatabaseUrl(): string {
   return value.DATABASE_URL as string;
 }
 
+/**
+ * Resolve o perfil de roteamento viário a partir do tipo de veículo.
+ */
+function resolveProfile(type: VehicleType): RoutingProfile {
+  switch (type) {
+    case VehicleType.Truck:
+      return 'truck';
+    case VehicleType.Motorcycle:
+      return 'motorcycle';
+    case VehicleType.Van:
+    case VehicleType.Car:
+    default:
+      return 'auto';
+  }
+}
+
 /** Rota de exemplo com traçado, paradas (entregas) e motorista em São Paulo. */
 interface SeedRoute {
   name: string;
@@ -53,7 +71,8 @@ interface SeedRoute {
   vehicleType: VehicleType;
   capacityKg: number;
   driver: { name: string; licenseNumber: string; licenseCategory: string };
-  coordinates: [number, number][];
+  waypoints: { lng: number; lat: number }[];
+  fallbackCoordinates: [number, number][];
   stops: { order: number; coordinates: [number, number]; address: string }[];
   /** Manutenção de demonstração (opcional). */
   maintenance?: {
@@ -71,7 +90,14 @@ const routes: SeedRoute[] = [
     vehicleType: VehicleType.Truck,
     capacityKg: 12000,
     driver: { name: 'João da Silva', licenseNumber: 'SEED-CNH-001', licenseCategory: 'E' },
-    coordinates: [
+    waypoints: [
+      { lng: -46.6333, lat: -23.5505 },
+      { lng: -46.638, lat: -23.56 },
+      { lng: -46.645, lat: -23.575 },
+      { lng: -46.652, lat: -23.59 },
+      { lng: -46.66, lat: -23.605 },
+    ],
+    fallbackCoordinates: [
       [-46.6333, -23.5505],
       [-46.638, -23.56],
       [-46.645, -23.575],
@@ -91,7 +117,14 @@ const routes: SeedRoute[] = [
     vehicleType: VehicleType.Van,
     capacityKg: 1500,
     driver: { name: 'Maria Oliveira', licenseNumber: 'SEED-CNH-002', licenseCategory: 'D' },
-    coordinates: [
+    waypoints: [
+      { lng: -46.72, lat: -23.54 },
+      { lng: -46.7, lat: -23.545 },
+      { lng: -46.68, lat: -23.548 },
+      { lng: -46.65, lat: -23.55 },
+      { lng: -46.6333, lat: -23.5505 },
+    ],
+    fallbackCoordinates: [
       [-46.72, -23.54],
       [-46.7, -23.545],
       [-46.68, -23.548],
@@ -110,7 +143,13 @@ const routes: SeedRoute[] = [
     vehicleType: VehicleType.Car,
     capacityKg: 650,
     driver: { name: 'Carlos Souza', licenseNumber: 'SEED-CNH-003', licenseCategory: 'B' },
-    coordinates: [
+    waypoints: [
+      { lng: -46.62, lat: -23.5 },
+      { lng: -46.625, lat: -23.515 },
+      { lng: -46.63, lat: -23.53 },
+      { lng: -46.6333, lat: -23.5505 },
+    ],
+    fallbackCoordinates: [
       [-46.62, -23.5],
       [-46.625, -23.515],
       [-46.63, -23.53],
@@ -145,6 +184,13 @@ async function seed(): Promise<void> {
     entities: ['src/**/*.entity.ts'],
     synchronize: false,
   });
+
+  const routingConfig = {
+    baseUrl: process.env.ROUTING_BASE_URL || 'http://localhost:8002',
+    timeoutMs: Number(process.env.ROUTING_TIMEOUT_MS || 5000),
+    snapToleranceM: Number(process.env.ROUTING_SNAP_TOLERANCE_M || 150),
+  };
+  const valhalla = new ValhallaProvider(routingConfig);
 
   await dataSource.initialize();
 
@@ -189,22 +235,55 @@ async function seed(): Promise<void> {
       );
       summary.vehicles += 1;
 
-      const lineString = `LINESTRING(${route.coordinates
+      const profile = resolveProfile(route.vehicleType);
+      let routedCoordinates: [number, number][];
+      let distanceM: number | null = null;
+      let durationS: number | null = null;
+      let geometrySource: string = 'valhalla';
+
+      try {
+        const routed = await valhalla.route({
+          waypoints: route.waypoints,
+          profile,
+        });
+        routedCoordinates = routed.geometry.coordinates;
+        distanceM = routed.distanceM;
+        durationS = routed.durationS;
+      } catch (routingErr) {
+        const allowOffline = process.env.ALLOW_OFFLINE_SEED === 'true';
+        if (allowOffline) {
+          console.warn(
+            `⚠️  Valhalla inacessível (${routingConfig.baseUrl}). Usando traçado de fallback manual para rota "${route.name}".`,
+          );
+          routedCoordinates = route.fallbackCoordinates;
+          geometrySource = 'manual';
+        } else {
+          throw new Error(
+            `Motor de rotas Valhalla inacessível em ${routingConfig.baseUrl}. ` +
+              `Para popular rotas sobre ruas reais, inicie o container com os dados OSM de São Paulo conforme infra/osm/README.md. ` +
+              `(Para executar o seed em modo desenvolvimento offline, defina ALLOW_OFFLINE_SEED=true). Causa: ${routingErr}`,
+          );
+        }
+      }
+
+      const lineString = `LINESTRING(${routedCoordinates
         .map(([lng, lat]) => `${lng} ${lat}`)
         .join(', ')})`;
 
       const [createdRoute] = await dataSource.query<{ id: string }[]>(
-        `INSERT INTO "routes" ("name", "geometry", "waypoints", "assigned_vehicle_id", "status")
-         VALUES ($1, ST_SetSRID(ST_GeomFromText($2), 4326), $3::jsonb, $4, $5)
+        `INSERT INTO "routes" ("name", "geometry", "waypoints", "assigned_vehicle_id", "status", "distance_m", "duration_s", "profile", "geometry_source")
+         VALUES ($1, ST_SetSRID(ST_GeomFromText($2), 4326), $3::jsonb, $4, $5, $6, $7, $8, $9)
          RETURNING "id"`,
         [
           route.name,
           lineString,
-          JSON.stringify(
-            route.stops.map((stop) => ({ lng: stop.coordinates[0], lat: stop.coordinates[1] })),
-          ),
+          JSON.stringify(route.waypoints),
           vehicle.id,
           RouteStatus.Assigned,
+          distanceM,
+          durationS,
+          profile,
+          geometrySource,
         ],
       );
       summary.routes += 1;
@@ -240,7 +319,7 @@ async function seed(): Promise<void> {
       }
 
       console.log(
-        `Seed: rota "${route.name}" (${route.plate}, motorista ${driver.id.slice(0, 8)}) com ${route.stops.length} entrega(s).`,
+        `Seed: rota "${route.name}" (${route.plate}, perfil: ${profile}, origem: ${geometrySource}) com ${route.stops.length} entrega(s).`,
       );
     }
 

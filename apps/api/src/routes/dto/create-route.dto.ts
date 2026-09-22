@@ -40,8 +40,8 @@ export class CreateRouteDto {
   @MaxLength(120)
   name: string;
 
-  /** Traçado da rota como GeoJSON LineString. */
-  @ApiProperty({
+  /** Traçado da rota como GeoJSON LineString (opcional; gerado automaticamente quando waypoints são informados). */
+  @ApiPropertyOptional({
     example: {
       type: 'LineString',
       coordinates: [
@@ -50,8 +50,9 @@ export class CreateRouteDto {
       ],
     },
   })
+  @IsOptional()
   @IsLineString()
-  geometry: GeoJsonLineString;
+  geometry?: GeoJsonLineString;
 
   /** Pontos intermediários da rota. */
   @ApiPropertyOptional({ type: [WaypointInputDto] })

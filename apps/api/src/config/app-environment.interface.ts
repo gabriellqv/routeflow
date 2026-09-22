@@ -19,4 +19,16 @@ export interface AppEnvironment {
 
   /** Segredo utilizado para assinar os tokens JWT. */
   jwtSecret: string;
+
+  /** Provedor de roteamento ('valhalla'). */
+  routingProvider: string;
+
+  /** URL base do serviço de roteamento (ex.: http://localhost:8002). */
+  routingBaseUrl: string;
+
+  /** Timeout em milissegundos para requisições de roteamento. */
+  routingTimeoutMs: number;
+
+  /** Tolerância máxima em metros para snapping dos waypoints à malha viária. */
+  routingSnapToleranceM: number;
 }

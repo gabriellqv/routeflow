@@ -1,6 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { VehicleType } from '@routeflow/contracts';
+import { RoutingService } from '../routing/routing.service.js';
 import { Vehicle } from '../vehicles/vehicle.entity.js';
 import { CreateRouteDto } from './dto/create-route.dto.js';
 import { Route } from './route.entity.js';
@@ -27,6 +29,10 @@ describe('RoutesService', () => {
   let vehicleRepository: {
     findOne: ReturnType<typeof vi.fn>;
   };
+  let routingService: {
+    route: ReturnType<typeof vi.fn>;
+    resolveProfile: ReturnType<typeof vi.fn>;
+  };
 
   const geometry = {
     type: 'LineString' as const,
@@ -36,6 +42,11 @@ describe('RoutesService', () => {
     ] as [number, number][],
   };
 
+  const waypoints = [
+    { name: 'Ponto A', lng: -46.63, lat: -23.55 },
+    { name: 'Ponto B', lng: -46.64, lat: -23.6 },
+  ];
+
   const route = {
     id: 'route-1',
     name: 'Centro — Zona Sul',
@@ -44,6 +55,10 @@ describe('RoutesService', () => {
     assignedVehicleId: null,
     assignedVehicle: null,
     status: 'created',
+    distanceM: null,
+    durationS: null,
+    profile: null,
+    geometrySource: 'manual' as const,
     createdAt: new Date(),
   } as Route;
 
@@ -60,17 +75,39 @@ describe('RoutesService', () => {
       find: vi.fn(),
       findOne: vi.fn(),
       create: vi.fn((data: Partial<Route>) => data as Route),
-      save: vi.fn((entity: Route) => Promise.resolve(entity)),
+      save: vi.fn((entity: Route) => {
+        entity.id = entity.id || 'route-1';
+        return Promise.resolve(entity);
+      }),
       remove: vi.fn(),
       createQueryBuilder: vi.fn(() => queryBuilder),
     };
     vehicleRepository = { findOne: vi.fn() };
+    routingService = {
+      route: vi.fn().mockResolvedValue({
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [-46.63, -23.55],
+            [-46.635, -23.575],
+            [-46.64, -23.6],
+          ],
+        },
+        distanceM: 6200,
+        durationS: 720,
+        profile: 'auto',
+      }),
+      resolveProfile: vi.fn((type?: VehicleType) =>
+        type === VehicleType.Truck ? 'truck' : 'auto',
+      ),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         RoutesService,
         { provide: getRepositoryToken(Route), useValue: repository },
         { provide: getRepositoryToken(Vehicle), useValue: vehicleRepository },
+        { provide: RoutingService, useValue: routingService },
       ],
     }).compile();
 
@@ -78,7 +115,7 @@ describe('RoutesService', () => {
   });
 
   describe('create', () => {
-    it('deve criar uma rota sem veículo atribuído', async () => {
+    it('deve criar uma rota manual quando informada apenas geometria sem waypoints', async () => {
       repository.findOne.mockResolvedValueOnce(route);
 
       const dto: CreateRouteDto = { name: 'Centro — Zona Sul', geometry };
@@ -86,6 +123,7 @@ describe('RoutesService', () => {
       const result = await service.create(dto);
 
       expect(vehicleRepository.findOne).not.toHaveBeenCalled();
+      expect(routingService.route).not.toHaveBeenCalled();
       expect(result).toEqual({
         id: 'route-1',
         name: 'Centro — Zona Sul',
@@ -93,7 +131,52 @@ describe('RoutesService', () => {
         waypoints: [],
         assigned_vehicle_id: null,
         status: 'created',
+        distance_m: null,
+        duration_s: null,
+        profile: null,
+        geometry_source: 'manual',
       });
+    });
+
+    it('deve traçar rota viária com Valhalla quando informados >= 2 waypoints', async () => {
+      const routedRoute = {
+        ...route,
+        waypoints,
+        geometrySource: 'valhalla' as const,
+        distanceM: 6200,
+        durationS: 720,
+        profile: 'auto',
+      };
+      repository.findOne.mockResolvedValueOnce(routedRoute);
+
+      const dto: CreateRouteDto = {
+        name: 'Rota Automática',
+        waypoints,
+      };
+
+      const result = await service.create(dto);
+
+      expect(routingService.route).toHaveBeenCalledWith({
+        waypoints,
+        vehicleType: undefined,
+      });
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Rota Automática',
+          waypoints,
+          distanceM: 6200,
+          durationS: 720,
+          profile: 'auto',
+          geometrySource: 'valhalla',
+        }),
+      );
+      expect(result.geometry_source).toBe('valhalla');
+    });
+
+    it('deve lançar BadRequestException se nem waypoints nem geometria forem fornecidos', async () => {
+      await expect(service.create({ name: 'Rota Vazia' })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
     });
 
     it('deve lançar NotFoundException quando o veículo não existe', async () => {
@@ -130,6 +213,27 @@ describe('RoutesService', () => {
       const result = await service.update('route-1', { assigned_vehicle_id: null });
 
       expect(result.assigned_vehicle_id).toBeNull();
+    });
+
+    it('deve recalcular geometria e métricas quando novos waypoints forem informados', async () => {
+      const existingRoute = { ...route, id: 'route-1' };
+      repository.findOne.mockResolvedValueOnce(existingRoute);
+      repository.findOne.mockResolvedValueOnce({
+        ...existingRoute,
+        waypoints,
+        distanceM: 6200,
+        durationS: 720,
+        geometrySource: 'valhalla' as const,
+      });
+
+      const result = await service.update('route-1', { waypoints });
+
+      expect(routingService.route).toHaveBeenCalledWith({
+        waypoints,
+        vehicleType: undefined,
+      });
+      expect(result.distance_m).toBe(6200);
+      expect(result.geometry_source).toBe('valhalla');
     });
   });
 

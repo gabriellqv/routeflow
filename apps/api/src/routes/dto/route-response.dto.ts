@@ -40,4 +40,20 @@ export class RouteResponseDto implements RouteDto {
   /** Status operacional da rota. */
   @ApiProperty({ enum: RouteStatus })
   status: RouteDto['status'];
+
+  /** Distância total da rota em metros. */
+  @ApiProperty({ example: 6645, nullable: true })
+  distance_m?: number | null;
+
+  /** Duração estimada em segundos. */
+  @ApiProperty({ example: 664, nullable: true })
+  duration_s?: number | null;
+
+  /** Perfil de roteamento utilizado ('auto', 'truck', 'motorcycle'). */
+  @ApiProperty({ example: 'auto', nullable: true })
+  profile?: string | null;
+
+  /** Origem da geometria da rota ('manual' ou 'valhalla'). */
+  @ApiProperty({ example: 'valhalla', enum: ['manual', 'valhalla'] })
+  geometry_source?: 'manual' | 'valhalla';
 }

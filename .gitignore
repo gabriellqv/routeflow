@@ -37,3 +37,9 @@ Thumbs.db
 # Testes/cobertura
 coverage/
 .nyc_output/
+
+# Mapas e dados geoespaciais
+*.osm.pbf
+*.mbtiles
+infra/osm/*.osm.pbf
+infra/tiles/*.mbtiles
