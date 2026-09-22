@@ -1,6 +1,11 @@
 import { Inject, Logger, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
 import { OnGatewayConnection, OnGatewayDisconnect, WebSocketGateway } from '@nestjs/websockets';
-import type { VehiclePositionMessage, VehiclePositionsEnvelope } from '@routeflow/contracts';
+import type {
+  VehicleEventEnvelope,
+  VehicleEventMessage,
+  VehiclePositionMessage,
+  VehiclePositionsEnvelope,
+} from '@routeflow/contracts';
 import { RedisChannels, WsEvents } from '@routeflow/contracts';
 import type { Redis } from 'ioredis';
 import type { Socket } from 'socket.io';
@@ -94,6 +99,25 @@ export class RealtimeGateway
    */
   handleDisconnect(client: Socket): void {
     this.clients.delete(client);
+  }
+
+  /**
+   * Emite um evento de veículo para todos os clientes autenticados.
+   *
+   * Utilizado pelo worker da fila `notifications` para fazer o push dos eventos
+   * (falha, desvio, entrega, manutenção) no evento `vehicle_event`.
+   *
+   * @param event Evento de veículo a ser notificado.
+   */
+  emitVehicleEvent(event: VehicleEventMessage): void {
+    const envelope: VehicleEventEnvelope = {
+      event: WsEvents.vehicleEvent,
+      data: event,
+    };
+
+    for (const client of this.clients) {
+      client.emit(WsEvents.vehicleEvent, envelope);
+    }
   }
 
   /**

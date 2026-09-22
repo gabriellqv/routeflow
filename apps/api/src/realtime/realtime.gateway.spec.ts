@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import type { VehiclePositionMessage } from '@routeflow/contracts';
-import { RedisChannels, WsEvents } from '@routeflow/contracts';
+import { RedisChannels, VehicleEventType, WsEvents } from '@routeflow/contracts';
 import type { Redis } from 'ioredis';
 import type { Socket } from 'socket.io';
 import { AuthService } from '../auth/auth.service.js';
@@ -148,6 +148,36 @@ describe('RealtimeGateway', () => {
       event: WsEvents.vehiclePositions,
       data: [position],
     });
+  });
+
+  it('deve emitir um evento de veículo para os clientes autenticados', async () => {
+    const { socket, emit } = createSocket({ token: 'jwt-valido' });
+    await gateway.handleConnection(socket);
+
+    const event = {
+      vehicle_id: 'vehicle-1',
+      type: VehicleEventType.VehicleFault,
+      payload: { code: 'E1', description: 'Falha' },
+      ts: new Date().toISOString(),
+    };
+
+    gateway.emitVehicleEvent(event);
+
+    expect(emit).toHaveBeenCalledWith(WsEvents.vehicleEvent, {
+      event: WsEvents.vehicleEvent,
+      data: event,
+    });
+  });
+
+  it('não deve emitir eventos quando não há clientes', () => {
+    expect(() =>
+      gateway.emitVehicleEvent({
+        vehicle_id: 'vehicle-1',
+        type: VehicleEventType.VehicleFault,
+        payload: {},
+        ts: 'now',
+      }),
+    ).not.toThrow();
   });
 
   it('deve manter apenas a última posição de cada veículo na janela', async () => {

@@ -48,7 +48,7 @@ src/
 ├── maintenance/ # Entidade, CRUD e serviços de manutenções
 ├── positions/  # Histórico de posições (PostGIS) e log de eventos
 ├── queue/      # Configuração global do BullMQ (conexão Redis)
-├── workers/    # Workers BullMQ (entregas, manutenção e snapshots)
+├── workers/    # Workers BullMQ (entregas, manutenção, notificações e snapshots)
 ├── routes/     # Entidade, CRUD de rotas com geometria PostGIS
 ├── vehicles/   # Entidade, CRUD e serviços de veículos
 ├── redis/      # Cliente Redis (ioredis) e ciclo de vida
@@ -208,6 +208,10 @@ Os eventos de entrega e manutenção também são roteados para as filas
 | `maintenance_completed` | `maintenance` | Manutenção `done` + veículo `idle` |
 
 Todo evento consumido também é persistido em `event_log` (histórico).
+
+A fila `notifications` é consumida por um worker que faz o push dos eventos aos
+clientes WebSocket conectados no evento `vehicle_event` (envelope
+`VehicleEventEnvelope`).
 
 ## Histórico de posições (PostGIS)
 
