@@ -11,6 +11,7 @@ import type { Redis } from 'ioredis';
 import type { Socket } from 'socket.io';
 import { AuthService } from '../auth/auth.service.js';
 import { REDIS_CLIENT } from '../redis/redis.constants.js';
+import { readVehicleStates } from '../workers/position-snapshots.worker.js';
 
 /**
  * Intervalo de agregação (em milissegundos) das posições recebidas do Redis.
@@ -86,7 +87,43 @@ export class RealtimeGateway
 
       await this.authService.verify(token);
       this.clients.add(client);
-    } catch {
+      this.logger.log(
+        `Cliente autenticado e conectado: ${client.id} (total: ${this.clients.size})`,
+      );
+
+      // Envia imediatamente as posições mais recentes conhecidas no Redis para que o mapa
+      // renderize os veículos sem precisar aguardar o próximo tick do simulador.
+      if (typeof this.redis.zrange === 'function') {
+        try {
+          const snapshots = await readVehicleStates(this.redis);
+          if (snapshots.length > 0) {
+            const initialPositions: VehiclePositionMessage[] = snapshots.map((s) => ({
+              vehicle_id: s.vehicleId,
+              lat: s.lat,
+              lng: s.lng,
+              speed_kmh: s.speedKmh,
+              status: s.status,
+              route_id: '',
+              stop_index: 0,
+              ts: new Date().toISOString(),
+            }));
+
+            const envelope: VehiclePositionsEnvelope = {
+              event: WsEvents.vehiclePositions,
+              data: initialPositions,
+            };
+            client.emit(WsEvents.vehiclePositions, envelope);
+          }
+        } catch (err) {
+          this.logger.warn(
+            `Falha ao carregar snapshot inicial de posições: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Cliente ${client.id} rejeitado: ${error instanceof Error ? error.message : error}`,
+      );
       client.emit('unauthorized', { message: 'Token inválido ou expirado' });
       client.disconnect(true);
     }
@@ -99,6 +136,7 @@ export class RealtimeGateway
    */
   handleDisconnect(client: Socket): void {
     this.clients.delete(client);
+    this.logger.log(`Cliente desconectado: ${client.id} (restantes: ${this.clients.size})`);
   }
 
   /**

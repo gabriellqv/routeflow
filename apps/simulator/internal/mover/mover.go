@@ -164,7 +164,8 @@ func (m *Mover) runVehicle(ctx context.Context, vehicle model.Vehicle, route mod
 
 			if completed {
 				m.emitEvent(ctx, vehicle.ID, state.EventRouteCompleted, map[string]any{"route_id": route.ID})
-				machine.Transition(state.StatusIdle)
+				distance = 0.0
+				machine.Transition(state.StatusInRoute)
 			}
 		}
 	}
