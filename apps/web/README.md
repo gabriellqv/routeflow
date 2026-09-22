@@ -48,7 +48,8 @@ veículos recebidos via WebSocket.
 
 - `RealtimeService` conecta ao gateway `/ws` (JWT no handshake), assina
   `vehicle_positions` e `vehicle_event`, e mantém o estado por `vehicle_id` em
-  signals (com reconexão automática do `socket.io-client`).
+  signals. A reconexão usa backoff exponencial do `socket.io-client`, reenviando
+  o token atual a cada tentativa; um `unauthorized` interrompe a reconexão.
 - Cada veículo é colorido pelo `status` (`in_route`, `stopped`, `fault`,
   `maintenance`); clicar em um veículo abre um popup com os dados.
 
