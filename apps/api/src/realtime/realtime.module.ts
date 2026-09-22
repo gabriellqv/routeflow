@@ -12,5 +12,6 @@ import { RealtimeGateway } from './realtime.gateway.js';
 @Module({
   imports: [RedisModule, AuthModule],
   providers: [RealtimeGateway],
+  exports: [RealtimeGateway],
 })
 export class RealtimeModule {}
