@@ -13,6 +13,7 @@ export default tseslint.config(
       '**/coverage/**',
       '**/.angular/**',
       '**/bin/**',
+      'apps/web/public/**',
     ],
   },
   js.configs.recommended,

@@ -9,6 +9,27 @@
         </span>
       </p>
     </div>
+
+    <div class="map__controls">
+      <div class="theme-toggle" role="group" aria-label="Estilo do mapa">
+        <button
+          type="button"
+          class="theme-toggle__btn"
+          [class.theme-toggle__btn--active]="activeStyle() === 'positron'"
+          (click)="setStyle('positron')"
+        >
+          Positron
+        </button>
+        <button
+          type="button"
+          class="theme-toggle__btn"
+          [class.theme-toggle__btn--active]="activeStyle() === 'dark-matter'"
+          (click)="setStyle('dark-matter')"
+        >
+          Dark Matter
+        </button>
+      </div>
+    </div>
   </header>
 
   @if (error()) {

@@ -36,9 +36,24 @@ export const WS_URL = new InjectionToken<string>('WS_URL', {
 });
 
 /**
- * Template de tiles raster do mapa base.
+ * URL do estilo vetorial (OpenMapTiles / MapLibre GL Style JSON).
  *
- * Configurável em runtime por `window.__env.MAP_TILES_URL`.
+ * Configurável em runtime por `window.__env.MAP_STYLE_URL`.
+ * Por padrão, aponta para o estilo Positron vetorial (local self-hosted ou hospedado).
+ */
+export const MAP_STYLE_URL = new InjectionToken<string>('MAP_STYLE_URL', {
+  providedIn: 'root',
+  factory: () => {
+    const runtimeConfig = (globalThis as { __env?: { MAP_STYLE_URL?: string } }).__env;
+    return (
+      runtimeConfig?.MAP_STYLE_URL ??
+      'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
+    );
+  },
+});
+
+/**
+ * @deprecated Use `MAP_STYLE_URL` para estilos vetoriais OpenMapTiles.
  */
 export const MAP_TILES_URL = new InjectionToken<string>('MAP_TILES_URL', {
   providedIn: 'root',
