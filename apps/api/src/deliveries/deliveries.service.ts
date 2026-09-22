@@ -103,6 +103,44 @@ export class DeliveriesService {
   }
 
   /**
+   * Marca uma entrega como em andamento (evento `delivery_started`).
+   *
+   * Ignora silenciosamente entregas já concluídas e inexistentes, pois o evento
+   * vem de uma fonte externa (simulador) e não deve falhar o worker.
+   *
+   * @param id Identificador da entrega (stop).
+   */
+  async markStarted(id: string): Promise<void> {
+    const delivery = await this.repository.findOne({ where: { id } });
+
+    if (!delivery || delivery.status === DeliveryStatus.Done) {
+      return;
+    }
+
+    delivery.status = DeliveryStatus.InProgress;
+    await this.repository.save(delivery);
+  }
+
+  /**
+   * Marca uma entrega como concluída (evento `delivery_completed`).
+   *
+   * Ignora silenciosamente entregas inexistentes e é idempotente.
+   *
+   * @param id Identificador da entrega (stop).
+   */
+  async markCompleted(id: string): Promise<void> {
+    const delivery = await this.repository.findOne({ where: { id } });
+
+    if (!delivery || delivery.status === DeliveryStatus.Done) {
+      return;
+    }
+
+    delivery.status = DeliveryStatus.Done;
+    delivery.deliveredAt = delivery.deliveredAt ?? new Date();
+    await this.repository.save(delivery);
+  }
+
+  /**
    * Remove uma entrega.
    *
    * @param id Identificador da entrega.

@@ -44,8 +44,10 @@ src/
 ├── database/   # Conexão com PostgreSQL (TypeORM) e migrations
 ├── deliveries/ # Entidade, CRUD e serviços de entregas (paradas)
 ├── drivers/    # Entidade, CRUD e serviços de motoristas
-├── events/     # Consumer da stream de eventos -> BullMQ notifications
+├── events/     # Consumer da stream de eventos -> BullMQ (notifications/deliveries/maintenance)
 ├── maintenance/ # Entidade, CRUD e serviços de manutenções
+├── queue/      # Configuração global do BullMQ (conexão Redis)
+├── workers/    # Workers BullMQ (entregas e manutenção)
 ├── routes/     # Entidade, CRUD de rotas com geometria PostGIS
 ├── vehicles/   # Entidade, CRUD e serviços de veículos
 ├── redis/      # Cliente Redis (ioredis) e ciclo de vida
@@ -190,9 +192,19 @@ janelas de ~100 ms (mantendo a última posição de cada veículo) e emite o eve
 
 O consumer de eventos cria um consumer group (`routeflow-api`) sobre a stream
 Redis `vehicles:events` e, a cada ~500 ms, lê as entradas novas com
-`XREADGROUP`. Cada evento é enfileirado como job `vehicle_event` na fila BullMQ
-`notifications` e confirmado com `XACK`. A entrega é ao-menos-uma-vez e o loop é
+`XREADGROUP`. Cada evento é enfileirado na fila BullMQ `notifications` (job
+`vehicle_event`) e confirmado com `XACK`. A entrega é ao-menos-uma-vez e o loop é
 encerrado de forma graciosa no shutdown.
+
+Os eventos de entrega e manutenção também são roteados para as filas
+`deliveries` e `maintenance`, onde os workers atualizam o banco:
+
+| Evento | Fila | Efeito |
+|---|---|---|
+| `delivery_started` | `deliveries` | Entrega em `in_progress` |
+| `delivery_completed` | `deliveries` | Entrega `done` + `delivered_at` |
+| `maintenance_started` | `maintenance` | Manutenção `in_progress` + veículo `maintenance` |
+| `maintenance_completed` | `maintenance` | Manutenção `done` + veículo `idle` |
 
 ## Variáveis de ambiente
 
