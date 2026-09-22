@@ -71,8 +71,8 @@ npm run migration:generate --workspace @routeflow/api -- src/database/migrations
 
 ## Seed
 
-Para popular o banco com veículos, rotas e entregas de demonstração (idempotente
-por placa) e garantir o usuário administrador de demonstração:
+Para popular o banco com veículos, motoristas, rotas, entregas e manutenções de
+demonstração (idempotente por placa/CNH) e garantir o usuário administrador:
 
 ```bash
 npm run seed --workspace @routeflow/api

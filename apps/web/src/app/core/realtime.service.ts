@@ -20,7 +20,9 @@ export type RealtimeStatus = 'disconnected' | 'connecting' | 'connected';
  * Conecta ao gateway `/ws` autenticando com o JWT da sessão, assina
  * `vehicle_positions` e `vehicle_event` e expõe o estado consolidado dos
  * veículos via signals. A reconexão é delegada ao `socket.io-client`
- * (reconexão automática com backoff).
+ * (backoff exponencial); a cada tentativa o token atual da sessão é reenviado,
+ * garantindo a re-assinatura após a reconexão. Uma conexão recusada por
+ * autenticação (`unauthorized`) interrompe a reconexão para evitar laços.
  */
 @Injectable({ providedIn: 'root' })
 export class RealtimeService {
@@ -33,6 +35,7 @@ export class RealtimeService {
   private readonly statusSignal = signal<RealtimeStatus>('disconnected');
   private readonly vehiclesSignal = signal<Map<string, VehiclePositionMessage>>(new Map());
   private readonly lastEventSignal = signal<VehicleEventMessage | null>(null);
+  private readonly reconnectAttemptsSignal = signal(0);
 
   /** Estado atual da conexão. */
   readonly status = this.statusSignal.asReadonly();
@@ -42,6 +45,9 @@ export class RealtimeService {
 
   /** Último evento de veículo recebido. */
   readonly lastEvent = this.lastEventSignal.asReadonly();
+
+  /** Número de tentativas de reconexão desde a última conexão bem-sucedida. */
+  readonly reconnectAttempts = this.reconnectAttemptsSignal.asReadonly();
 
   constructor() {
     this.destroyRef.onDestroy(() => this.disconnect());
@@ -56,19 +62,38 @@ export class RealtimeService {
     }
 
     this.statusSignal.set('connecting');
+    this.reconnectAttemptsSignal.set(0);
 
     this.socket = io(this.wsUrl, {
       path: '/ws',
-      auth: { token: this.authStore.token() },
+      // O token é resolvido a cada tentativa (inclusive reconexões), garantindo
+      // que a sessão mais recente seja usada ao reabrir a conexão.
+      auth: (callback: (data: { token: string | null }) => void) =>
+        callback({ token: this.authStore.token() }),
       transports: ['websocket'],
       reconnection: true,
       reconnectionDelayMax: 10000,
     });
 
-    this.socket.on('connect', () => this.statusSignal.set('connected'));
+    this.socket.on('connect', () => {
+      this.statusSignal.set('connected');
+      this.reconnectAttemptsSignal.set(0);
+    });
+
     this.socket.on('disconnect', () => this.statusSignal.set('disconnected'));
-    this.socket.on('connect_error', () => this.statusSignal.set('disconnected'));
-    this.socket.on('unauthorized', () => this.statusSignal.set('disconnected'));
+
+    this.socket.on('connect_error', () => this.statusSignal.set('connecting'));
+
+    this.socket.io.on('reconnect_attempt', () =>
+      this.reconnectAttemptsSignal.update((attempts) => attempts + 1),
+    );
+
+    this.socket.on('unauthorized', () => {
+      // Sessão inválida: não adianta reconectar com o mesmo token.
+      this.stopReconnection();
+      this.statusSignal.set('disconnected');
+      this.socket?.disconnect();
+    });
 
     this.socket.on(WsEvents.vehiclePositions, (envelope: VehiclePositionsEnvelope) => {
       this.applyPositions(envelope.data);
@@ -84,6 +109,15 @@ export class RealtimeService {
     this.socket?.disconnect();
     this.socket = undefined;
     this.statusSignal.set('disconnected');
+  }
+
+  /**
+   * Desabilita a reconexão automática do socket atual (ex.: token inválido).
+   */
+  private stopReconnection(): void {
+    if (this.socket) {
+      this.socket.io.opts.reconnection = false;
+    }
   }
 
   /**
