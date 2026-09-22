@@ -12,6 +12,7 @@ import { RedisModule } from './redis/redis.module.js';
 import { RoutesModule } from './routes/routes.module.js';
 import { UsersModule } from './users/users.module.js';
 import { VehiclesModule } from './vehicles/vehicles.module.js';
+import { WorkersModule } from './workers/workers.module.js';
 
 /**
  * Módulo raiz da API.
@@ -34,6 +35,7 @@ import { VehiclesModule } from './vehicles/vehicles.module.js';
     MaintenanceModule,
     RealtimeModule,
     EventsModule,
+    WorkersModule,
   ],
 })
 export class AppModule {}

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { VehicleEventMessage } from '@routeflow/contracts';
-import { BullQueues, RedisStreams } from '@routeflow/contracts';
+import { BullQueues, RedisStreams, VehicleEventType } from '@routeflow/contracts';
 import type { Queue } from 'bullmq';
 import type { Redis } from 'ioredis';
 import { REDIS_CLIENT } from '../redis/redis.constants.js';
@@ -25,12 +25,23 @@ const POLL_INTERVAL_MS = 500;
 const READ_BATCH_SIZE = 100;
 
 /**
- * Serviço que consome a stream `vehicles:events` e enfileira notificações.
+ * Mapeia tipos de evento para a fila BullMQ responsável por processá-los.
+ */
+const EVENT_QUEUE: Partial<Record<VehicleEventType, string>> = {
+  [VehicleEventType.DeliveryStarted]: BullQueues.deliveries,
+  [VehicleEventType.DeliveryCompleted]: BullQueues.deliveries,
+  [VehicleEventType.MaintenanceStarted]: BullQueues.maintenance,
+  [VehicleEventType.MaintenanceCompleted]: BullQueues.maintenance,
+};
+
+/**
+ * Serviço que consome a stream `vehicles:events` e distribui os eventos.
  *
  * Cria (de forma idempotente) um consumer group sobre a stream e, em um loop
- * periódico, lê as entradas novas com `XREADGROUP`. Cada evento é enfileirado
- * na fila `notifications` (BullMQ) e confirmado com `XACK`. O loop é encerrado
- * de forma graciosa no shutdown da aplicação.
+ * periódico, lê as entradas novas com `XREADGROUP`. Cada evento é roteado para
+ * a fila BullMQ correspondente (entregas/manutenção) e também enfileirado na
+ * fila `notifications`, sendo confirmado com `XACK`. O loop é encerrado de
+ * forma graciosa no shutdown da aplicação.
  */
 @Injectable()
 export class EventsConsumerService implements OnModuleInit, OnApplicationShutdown {
@@ -48,6 +59,8 @@ export class EventsConsumerService implements OnModuleInit, OnApplicationShutdow
   constructor(
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     @InjectQueue(BullQueues.notifications) private readonly notifications: Queue,
+    @InjectQueue(BullQueues.deliveries) private readonly deliveries: Queue,
+    @InjectQueue(BullQueues.maintenance) private readonly maintenance: Queue,
   ) {}
 
   /**
@@ -108,7 +121,14 @@ export class EventsConsumerService implements OnModuleInit, OnApplicationShutdow
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'erro desconhecido';
-      this.logger.error(`Falha no ciclo de consumo de eventos: ${message}`);
+
+      // A stream pode ter sido removida/reiniciada; recria o group no próximo
+      // ciclo para não ficar preso em NOGROUP indefinidamente.
+      if (message.includes('NOGROUP')) {
+        this.groupReady = false;
+      } else {
+        this.logger.error(`Falha no ciclo de consumo de eventos: ${message}`);
+      }
     }
   }
 
@@ -208,11 +228,19 @@ export class EventsConsumerService implements OnModuleInit, OnApplicationShutdow
   }
 
   /**
-   * Enfileira o evento na fila de notificações.
+   * Enfileira o evento nas filas correspondentes.
    *
    * @param event Evento a ser enfileirado.
    */
   private async enqueue(event: VehicleEventMessage): Promise<void> {
     await this.notifications.add('vehicle_event', event);
+
+    const targetQueue = EVENT_QUEUE[event.type];
+
+    if (targetQueue === BullQueues.deliveries) {
+      await this.deliveries.add(event.type, event);
+    } else if (targetQueue === BullQueues.maintenance) {
+      await this.maintenance.add(event.type, event);
+    }
   }
 }

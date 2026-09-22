@@ -23,11 +23,27 @@ describe('EventsConsumerService', () => {
     xack: ReturnType<typeof vi.fn>;
   };
   let queue: { add: ReturnType<typeof vi.fn> };
+  let deliveriesQueue: { add: ReturnType<typeof vi.fn> };
+  let maintenanceQueue: { add: ReturnType<typeof vi.fn> };
 
-  const event = {
+  const faultEvent = {
     vehicle_id: 'vehicle-1',
     type: VehicleEventType.VehicleFault,
     payload: { code: 'E1', description: 'Falha' },
+    ts: new Date('2026-01-01T00:00:00.000Z').toISOString(),
+  };
+
+  const deliveryEvent = {
+    vehicle_id: 'vehicle-1',
+    type: VehicleEventType.DeliveryCompleted,
+    payload: { stop_id: 'stop-1' },
+    ts: new Date('2026-01-01T00:00:00.000Z').toISOString(),
+  };
+
+  const maintenanceEvent = {
+    vehicle_id: 'vehicle-1',
+    type: VehicleEventType.MaintenanceStarted,
+    payload: { maintenance_id: 'maint-1' },
     ts: new Date('2026-01-01T00:00:00.000Z').toISOString(),
   };
 
@@ -44,12 +60,16 @@ describe('EventsConsumerService', () => {
       xack: vi.fn().mockResolvedValue(1),
     };
     queue = { add: vi.fn().mockResolvedValue({ id: 'job-1' }) };
+    deliveriesQueue = { add: vi.fn().mockResolvedValue({ id: 'job-2' }) };
+    maintenanceQueue = { add: vi.fn().mockResolvedValue({ id: 'job-3' }) };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         EventsConsumerService,
         { provide: REDIS_CLIENT, useValue: redis as unknown as Redis },
         { provide: getQueueToken(BullQueues.notifications), useValue: queue },
+        { provide: getQueueToken(BullQueues.deliveries), useValue: deliveriesQueue },
+        { provide: getQueueToken(BullQueues.maintenance), useValue: maintenanceQueue },
       ],
     }).compile();
 
@@ -93,16 +113,35 @@ describe('EventsConsumerService', () => {
   });
 
   it('deve enfileirar cada evento e confirmar com XACK', async () => {
-    redis.xreadgroup.mockResolvedValue([streamEntry('1-0', event)]);
+    redis.xreadgroup.mockResolvedValue([streamEntry('1-0', faultEvent)]);
 
     await runOneCycle();
 
-    expect(queue.add).toHaveBeenCalledWith('vehicle_event', event);
+    expect(queue.add).toHaveBeenCalledWith('vehicle_event', faultEvent);
     expect(redis.xack).toHaveBeenCalledWith(
       RedisStreams.vehiclesEvents,
       EVENTS_CONSUMER_GROUP,
       '1-0',
     );
+  });
+
+  it('deve rotear eventos de entrega para a fila deliveries', async () => {
+    redis.xreadgroup.mockResolvedValue([streamEntry('2-0', deliveryEvent)]);
+
+    await runOneCycle();
+
+    expect(queue.add).toHaveBeenCalledWith('vehicle_event', deliveryEvent);
+    expect(deliveriesQueue.add).toHaveBeenCalledWith(deliveryEvent.type, deliveryEvent);
+    expect(maintenanceQueue.add).not.toHaveBeenCalled();
+  });
+
+  it('deve rotear eventos de manutenção para a fila maintenance', async () => {
+    redis.xreadgroup.mockResolvedValue([streamEntry('3-0', maintenanceEvent)]);
+
+    await runOneCycle();
+
+    expect(maintenanceQueue.add).toHaveBeenCalledWith(maintenanceEvent.type, maintenanceEvent);
+    expect(deliveriesQueue.add).not.toHaveBeenCalled();
   });
 
   it('deve ler novas entradas com o consumer group da API', async () => {
@@ -151,5 +190,20 @@ describe('EventsConsumerService', () => {
     redis.xreadgroup.mockRejectedValue(new Error('redis indisponível'));
 
     await expect(runOneCycle()).resolves.toBeUndefined();
+  });
+
+  it('deve recriar o group quando a stream deixa de existir (NOGROUP)', async () => {
+    redis.xgroup.mockResolvedValue('OK');
+    redis.xreadgroup
+      .mockRejectedValueOnce(new Error('NOGROUP No such key or consumer group'))
+      .mockResolvedValue(null);
+
+    vi.useFakeTimers();
+    service.onModuleInit();
+    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(500);
+
+    // Cria uma vez na inicialização e recria após o NOGROUP.
+    expect(redis.xgroup).toHaveBeenCalledTimes(2);
   });
 });

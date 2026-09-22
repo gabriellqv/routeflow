@@ -104,6 +104,46 @@ export class MaintenanceService {
   }
 
   /**
+   * Inicia uma manutenção (evento `maintenance_started`).
+   *
+   * Coloca o veículo em `maintenance`. Ignora manutenções inexistentes ou já
+   * concluídas, pois o evento vem de fonte externa (simulador).
+   *
+   * @param id Identificador da manutenção.
+   */
+  async markStarted(id: string): Promise<void> {
+    const maintenance = await this.repository.findOne({ where: { id } });
+
+    if (!maintenance || maintenance.status === MaintenanceStatus.Done) {
+      return;
+    }
+
+    const vehicle = await this.getVehicleOrFail(maintenance.vehicleId);
+    await this.applyStatus(maintenance, vehicle, MaintenanceStatus.InProgress);
+    await this.repository.save(maintenance);
+  }
+
+  /**
+   * Conclui uma manutenção (evento `maintenance_completed`).
+   *
+   * Libera o veículo para `idle`. Idempotente e tolerante a manutenções
+   * inexistentes.
+   *
+   * @param id Identificador da manutenção.
+   */
+  async markCompleted(id: string): Promise<void> {
+    const maintenance = await this.repository.findOne({ where: { id } });
+
+    if (!maintenance || maintenance.status === MaintenanceStatus.Done) {
+      return;
+    }
+
+    const vehicle = await this.getVehicleOrFail(maintenance.vehicleId);
+    await this.applyStatus(maintenance, vehicle, MaintenanceStatus.Done);
+    await this.repository.save(maintenance);
+  }
+
+  /**
    * Remove uma manutenção.
    *
    * @param id Identificador da manutenção.
