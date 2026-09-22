@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
 import { BullQueues, RedisStreams, VehicleEventType } from '@routeflow/contracts';
 import type { Redis } from 'ioredis';
+import { EventLogService } from '../positions/event-log.service.js';
 import { REDIS_CLIENT } from '../redis/redis.constants.js';
 import {
   EVENTS_CONSUMER_GROUP,
@@ -25,6 +26,7 @@ describe('EventsConsumerService', () => {
   let queue: { add: ReturnType<typeof vi.fn> };
   let deliveriesQueue: { add: ReturnType<typeof vi.fn> };
   let maintenanceQueue: { add: ReturnType<typeof vi.fn> };
+  let eventLog: { save: ReturnType<typeof vi.fn> };
 
   const faultEvent = {
     vehicle_id: 'vehicle-1',
@@ -62,6 +64,7 @@ describe('EventsConsumerService', () => {
     queue = { add: vi.fn().mockResolvedValue({ id: 'job-1' }) };
     deliveriesQueue = { add: vi.fn().mockResolvedValue({ id: 'job-2' }) };
     maintenanceQueue = { add: vi.fn().mockResolvedValue({ id: 'job-3' }) };
+    eventLog = { save: vi.fn().mockResolvedValue(undefined) };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -70,6 +73,7 @@ describe('EventsConsumerService', () => {
         { provide: getQueueToken(BullQueues.notifications), useValue: queue },
         { provide: getQueueToken(BullQueues.deliveries), useValue: deliveriesQueue },
         { provide: getQueueToken(BullQueues.maintenance), useValue: maintenanceQueue },
+        { provide: EventLogService, useValue: eventLog },
       ],
     }).compile();
 
@@ -118,6 +122,7 @@ describe('EventsConsumerService', () => {
     await runOneCycle();
 
     expect(queue.add).toHaveBeenCalledWith('vehicle_event', faultEvent);
+    expect(eventLog.save).toHaveBeenCalledWith(faultEvent);
     expect(redis.xack).toHaveBeenCalledWith(
       RedisStreams.vehiclesEvents,
       EVENTS_CONSUMER_GROUP,
