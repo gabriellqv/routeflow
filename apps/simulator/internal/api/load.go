@@ -44,6 +44,8 @@ func (c *Client) getJSON(ctx context.Context, path string, out any) error {
 		return err
 	}
 
+	c.authorize(req)
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err

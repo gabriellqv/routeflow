@@ -16,10 +16,13 @@ banco.
 export REDIS_URL=redis://localhost:6379
 export API_URL=http://localhost:3000
 export SIMULATOR_PORT=8080
+export API_EMAIL=admin@routeflow.com
+export API_PASSWORD=admin123
 go run .
 ```
 
 - Health check: `http://localhost:8080/health`
+- Controle: `http://localhost:8080/control`
 
 ## Scripts
 
@@ -35,19 +38,39 @@ go run .
 
 ```
 .
-├── main.go            # Bootstrap: config, Redis, carregamento e movimento
+├── main.go            # Bootstrap: config, Redis, autenticação, carregamento e movimento
 └── internal/
     ├── config/        # Configuração a partir de variáveis de ambiente
     ├── redisx/        # Cliente Redis compartilhado
-    ├── api/           # Cliente HTTP da API do RouteFlow (health + carregamento)
+    ├── control/       # Estado de execução da simulação (running/paused/stopped)
+    ├── api/           # Cliente HTTP da API (login, health e carregamento)
     ├── model/         # Tipos de domínio (veículo, rota, posição, estado)
     ├── geometry/      # Haversine, comprimento e interpolação de LineString
     ├── state/         # Status/eventos de veículo e máquina de estados
     ├── stochastic/    # Eventos aleatórios configuráveis (falha/desvio)
     ├── emitter/       # Publicação no Redis (HASH, GEOADD, PUBLISH, XADD)
     ├── mover/         # Motor: uma goroutine por veículo
-    └── server/        # Servidor HTTP de health check
+    └── server/        # Servidor HTTP de health check e controle
 ```
+
+## Autenticação
+
+O simulador autentica na API (`POST /api/auth/login`) com as credenciais de
+`API_EMAIL`/`API_PASSWORD` e envia o JWT (`Authorization: Bearer`) ao carregar
+veículos e rotas. Por padrão, usa o administrador de demonstração criado pelo
+seed da API (`admin@routeflow.com` / `admin123`).
+
+## Controle
+
+O endpoint `POST /control` aplica uma ação à simulação e retorna o estado:
+
+| Método | Rota | Corpo | Descrição |
+|---|---|---|---|
+| GET | `/control` | — | Retorna o estado atual (`running`/`paused`/`stopped`) |
+| POST | `/control` | `{ "action": "start" \| "pause" \| "stop" }` | Aplica a ação |
+
+`pause` congela o avanço dos veículos; `start` retoma; `stop` encerra os loops
+de movimento. O CORS é liberado para o web chamar o simulador diretamente.
 
 ## Movimento
 
@@ -84,4 +107,6 @@ por quilômetro (`internal/stochastic`).
 |---|---|---|
 | `REDIS_URL` | URL do Redis | `redis://localhost:6379` |
 | `API_URL` | URL base da API | `http://localhost:3000` |
-| `SIMULATOR_PORT` | Porta do health check | `8080` |
+| `SIMULATOR_PORT` | Porta do health check/controle | `8080` |
+| `API_EMAIL` | E-mail para autenticar na API | `admin@routeflow.com` |
+| `API_PASSWORD` | Senha para autenticar na API | `admin123` |

@@ -10,16 +10,22 @@ type Config struct {
 	RedisURL string
 	// APIURL é a URL base da API do RouteFlow (ex.: http://localhost:3000).
 	APIURL string
-	// Port é a porta HTTP do servidor de health check do simulador.
+	// Port é a porta HTTP do servidor de health check/controle do simulador.
 	Port string
+	// APIEmail é o e-mail usado para autenticar na API.
+	APIEmail string
+	// APIPassword é a senha usada para autenticar na API.
+	APIPassword string
 }
 
 // Load lê a configuração das variáveis de ambiente, aplicando valores padrão.
 func Load() Config {
 	return Config{
-		RedisURL: getenv("REDIS_URL", "redis://localhost:6379"),
-		APIURL:   getenv("API_URL", "http://localhost:3000"),
-		Port:     getenv("SIMULATOR_PORT", "8080"),
+		RedisURL:    getenv("REDIS_URL", "redis://localhost:6379"),
+		APIURL:      getenv("API_URL", "http://localhost:3000"),
+		Port:        getenv("SIMULATOR_PORT", "8080"),
+		APIEmail:    getenv("API_EMAIL", "admin@routeflow.com"),
+		APIPassword: getenv("API_PASSWORD", "admin123"),
 	}
 }
 

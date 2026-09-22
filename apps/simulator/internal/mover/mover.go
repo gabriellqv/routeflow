@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"routeflow/simulator/internal/control"
 	"routeflow/simulator/internal/geometry"
 	"routeflow/simulator/internal/model"
 	"routeflow/simulator/internal/state"
@@ -26,6 +27,8 @@ type Options struct {
 	SpeedKmh     float64
 	TickInterval time.Duration
 	Stochastic   *stochastic.Generator
+	// Controller, quando informado, permite pausar/parar a simulação.
+	Controller *control.Controller
 }
 
 // Mover coordena a execução dos veículos simulados.
@@ -44,7 +47,13 @@ func New(publisher Publisher, speedKmh float64, tickInterval time.Duration) *Mov
 }
 
 // NewWithOptions cria um Mover com opções completas.
+//
+// O gerador estocástico recebe o padrão quando não informado.
 func NewWithOptions(publisher Publisher, options Options) *Mover {
+	if options.Stochastic == nil {
+		options.Stochastic = stochastic.New(stochastic.DefaultConfig())
+	}
+
 	return &Mover{publisher: publisher, options: options}
 }
 
@@ -94,6 +103,15 @@ func (m *Mover) runVehicle(ctx context.Context, vehicle model.Vehicle, route mod
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if m.stopped() {
+				log.Printf("veículo %s: simulação parada", vehicle.ID)
+				return
+			}
+
+			if m.paused() {
+				continue
+			}
+
 			status := machine.Status()
 			if status == state.StatusIdle {
 				// Rota concluída em tick anterior; nada mais a simular.
@@ -150,6 +168,25 @@ func (m *Mover) runVehicle(ctx context.Context, vehicle model.Vehicle, route mod
 			}
 		}
 	}
+}
+
+// paused indica se a simulação deve pausar o avanço dos veículos.
+func (m *Mover) paused() bool {
+	return m.state() == control.StatePaused
+}
+
+// stopped indica se a simulação foi encerrada pelo controle.
+func (m *Mover) stopped() bool {
+	return m.state() == control.StateStopped
+}
+
+// state devolve o estado atual do controlador (ou `running` sem controlador).
+func (m *Mover) state() control.State {
+	if m.options.Controller == nil {
+		return control.StateRunning
+	}
+
+	return m.options.Controller.State()
 }
 
 // emitEvent publica um evento, registrando o erro sem interromper o loop.

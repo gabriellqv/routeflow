@@ -1,0 +1,47 @@
+<section class="simulation">
+  <header class="simulation__header">
+    <div>
+      <h2 class="simulation__title">Controle da simulação</h2>
+      <p class="simulation__subtitle">Inicie, pause ou pare a movimentação dos veículos.</p>
+    </div>
+    <span class="badge" [class]="'badge--' + (state() ?? 'unknown')">
+      {{ state() ?? 'desconhecido' }}
+    </span>
+  </header>
+
+  @if (error()) {
+    <p class="alert" role="alert">{{ error() }}</p>
+  }
+
+  <div class="card simulation__actions">
+    <button
+      type="button"
+      class="btn btn--primary"
+      [disabled]="loading() || state() === 'running'"
+      (click)="send('start')"
+    >
+      Iniciar
+    </button>
+    <button
+      type="button"
+      class="btn"
+      [disabled]="loading() || state() !== 'running'"
+      (click)="send('pause')"
+    >
+      Pausar
+    </button>
+    <button
+      type="button"
+      class="btn btn--danger"
+      [disabled]="loading() || state() === 'stopped'"
+      (click)="send('stop')"
+    >
+      Parar
+    </button>
+  </div>
+
+  <p class="simulation__hint">
+    O simulador é controlado via HTTP (`POST /control`) na URL configurada em
+    <code>SIMULATOR_URL</code>.
+  </p>
+</section>
